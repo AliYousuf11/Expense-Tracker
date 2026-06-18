@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ExpenseTrack</title>
+  <style>
+    /* ── Design tokens ── */
+    :root {
+      --bg:        #0d0d0d;
+      --surface:   #181818;
+      --border:    #2a2a2a;
+      --accent:    #c8f135;
+      --accent-dim:#8aaa1f;
+      --text:      #f0f0f0;
+      --muted:     #666;
+      --danger:    #e05252;
+      --font-mono: 'Courier New', monospace;
+      --font-sans: 'Segoe UI', system-ui, sans-serif;
+      --radius:    10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+    }
+
+    /* ── Config banner ── */
+    #config-bar {
+      background: #141400;
+      border-bottom: 1px solid #2e2a00;
+      padding: 9px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: .8rem;
+      color: #b8980a;
+      flex-wrap: wrap;
+    }
+    #config-bar input {
+      flex: 0 0 220px;
+      background: #0d0d0d;
+      border: 1px solid #2e2a00;
+      border-radius: 6px;
+      color: #f0f0f0;
+      padding: 6px 10px;
+      font-size: .8rem;
+      outline: none;
+    }
+    #config-bar input:focus { border-color: var(--accent); }
+    #config-bar button {
+      padding: 6px 14px;
+      background: #b8980a;
+      color: #0d0d0d;
+      border: none;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: .78rem;
+      cursor: pointer;
+      letter-spacing: .04em;
+    }
+    #api-status { font-size: .75rem; }
+
+    /* ── Top bar ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 54px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: -.3px;
+    }
+    .logo-diamond {
+      width: 16px; height: 16px;
+      background: var(--accent);
+      transform: rotate(45deg);
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .header-total { text-align: right; }
+    .header-total .label {
+      font-size: .6rem;
+      letter-spacing: .12em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .header-total .amount {
+      font-family: var(--font-mono);
+      font-size: 1.25rem;
+      color: var(--accent);
+    }
+
+    /* ── Stats ── */
+    .stats-wrap {
+      padding: 18px 24px 0;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 700px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 1.4rem;
+      color: var(--accent);
+      line-height: 1;
+      margin-bottom: 5px;
+    }
+    .stat-label {
+      font-size: .58rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Layout ── */
+    main {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 18px;
+      padding: 18px 24px 40px;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+    @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .card-title {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text);
+      margin-bottom: 18px;
+    }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block;
+      font-size: .6rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      overflow: hidden;
+      transition: border-color .15s;
+    }
+    .input-wrap:focus-within { border-color: var(--accent); }
+    .input-prefix {
+      padding: 0 10px;
+      color: var(--accent);
+      font-family: var(--font-mono);
+      user-select: none;
+    }
+    input, textarea, select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: .88rem;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    .input-wrap input { border: none; border-radius: 0; padding: 9px 12px 9px 0; }
+    .input-wrap input:focus { border-color: transparent; }
+    textarea { resize: vertical; min-height: 84px; line-height: 1.5; }
+    select option { background: var(--surface); }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      width: 100%;
+      padding: 11px;
+      background: var(--accent);
+      color: #0d0d0d;
+      border: none;
+      border-radius: 7px;
+      font-weight: 700;
+      font-size: .88rem;
+      letter-spacing: .04em;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+      margin-top: 4px;
+    }
+    .btn-primary:hover   { opacity: .85; }
+    .btn-primary:active  { transform: scale(.98); }
+    .btn-primary:disabled { opacity: .38; cursor: not-allowed; }
+
+    /* ── Right col ── */
+    .right-col { display: flex; flex-direction: column; gap: 18px; }
+
+    .expenses-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .entry-count { font-size: .7rem; color: var(--muted); letter-spacing: .05em; }
+
+    .search-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .search-row input  { flex: 1; }
+    .search-row select { width: 150px; flex-shrink: 0; }
+
+    /* ── Expense items ── */
+    .expense-list { display: flex; flex-direction: column; gap: 7px; }
+
+    .expense-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px 14px;
+      transition: border-color .15s, opacity .2s;
+    }
+    .expense-item:hover { border-color: #383838; }
+    .expense-item.deleting { opacity: .4; pointer-events: none; }
+
+    .expense-cat-badge {
+      background: #1a2a0a;
+      color: var(--accent);
+      border-radius: 5px;
+      padding: 3px 8px;
+      font-size: .64rem;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .expense-info { flex: 1; min-width: 0; }
+    .expense-desc {
+      font-size: .85rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .expense-date { font-size: .68rem; color: var(--muted); margin-top: 2px; }
+    .expense-amount {
+      font-family: var(--font-mono);
+      font-size: .95rem;
+      flex-shrink: 0;
+    }
+    .btn-delete {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 5px;
+      transition: color .15s, background .15s;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .btn-delete:hover { color: var(--danger); background: #281212; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 48px 24px;
+      color: var(--muted);
+    }
+    .empty-diamond {
+      width: 26px; height: 26px;
+      border: 2px solid var(--border);
+      transform: rotate(45deg);
+      border-radius: 4px;
+      opacity: .45;
+    }
+    .empty-state p { font-size: .85rem; text-align: center; line-height: 1.6; }
+
+    /* ── Chart ── */
+    .chart-bars { display: flex; flex-direction: column; gap: 10px; }
+    .chart-row  { display: flex; align-items: center; gap: 10px; }
+    .chart-label {
+      width: 76px;
+      font-size: .68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex-shrink: 0;
+    }
+    .chart-track {
+      flex: 1;
+      height: 7px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .chart-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 4px;
+      transition: width .5s cubic-bezier(.22,1,.36,1);
+      width: 0%;
+    }
+    .chart-pct {
+      font-family: var(--font-mono);
+      font-size: .68rem;
+      color: var(--muted);
+      width: 34px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 11px 18px;
+      font-size: .83rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,.55);
+      transform: translateY(16px);
+      opacity: 0;
+      pointer-events: none;
+      transition: all .25s cubic-bezier(.22,1,.36,1);
+      z-index: 999;
+      max-width: 280px;
+    }
+    #toast.show    { transform: translateY(0); opacity: 1; }
+    #toast.success { border-color: var(--accent-dim); color: var(--accent); }
+    #toast.error   { border-color: var(--danger);     color: var(--danger); }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(0,0,0,.2);
+      border-top-color: #0d0d0d;
+      border-radius: 50%;
+      animation: spin .65s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- ── Config bar ── -->
+<div id="config-bar">
+  <span>⚙ API Base URL</span>
+  <input type="text" id="api-url-input" placeholder="https://your-backend.onrender.com" />
+  <button id="save-url-btn">Connect</button>
+  <span id="api-status"></span>
+</div>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">
+    <div class="logo-diamond"></div>
+    <span>ExpenseTrack</span>
+  </div>
+  <div class="header-total">
+    <div class="label">Total Spent</div>
+    <div class="amount" id="header-total">$0.00</div>
+  </div>
+</header>
+
+<!-- ── Stats ── -->
+<div class="stats-wrap">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value" id="stat-count">0</div>
+      <div class="stat-label">Expenses</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-total">$0.00</div>
+      <div class="stat-label">Total Spent</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-avg">$0.00</div>
+      <div class="stat-label">Average</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-cats">0</div>
+      <div class="stat-label">Categories</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Main ── -->
+<main>
+
+  <!-- Left: Add Expense form -->
+  <div class="card">
+    <div class="card-title">Add Expense</div>
+
+    <div class="form-group">
+      <label for="f-amount">Amount</label>
+      <div class="input-wrap">
+        <span class="input-prefix">$</span>
+        <input type="number" id="f-amount" placeholder="0.00" step="0.01" min="0" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="f-category">Category</label>
+      <input type="text" id="f-category" placeholder="e.g. Food, Transport…" list="cat-suggestions" />
+      <datalist id="cat-suggestions"></datalist>
+    </div>
+
+    <div class="form-group">
+      <label for="f-date">Date</label>
+      <input type="date" id="f-date" />
+    </div>
+
+    <div class="form-group">
+      <label for="f-desc">Description</label>
+      <textarea id="f-desc" placeholder="What was this for?"></textarea>
+    </div>
+
+    <button class="btn-primary" id="add-btn">Add Expense</button>
+  </div>
+
+  <!-- Right: List + Chart -->
+  <div class="right-col">
+
+    <div class="card">
+      <div class="expenses-header">
+        <div class="card-title" style="margin-bottom:0">All Expenses</div>
+        <div class="entry-count" id="entry-count">0 entries</div>
+      </div>
+
+      <div class="search-row">
+        <input type="text" id="search-input" placeholder="Search description or category…" />
+        <select id="filter-cat">
+          <option value="">All categories</option>
+        </select>
+      </div>
+
+      <div id="expense-list" class="expense-list">
+        <div class="empty-state">
+          <div class="empty-diamond"></div>
+          <p>No expenses yet.<br>Add one to get started.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="chart-card" style="display:none">
+      <div class="card-title">Spending by Category</div>
+      <div class="chart-bars" id="chart-bars"></div>
+    </div>
+
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+  // ─────────────────────────────────────────────
+  //  Element refs  (mirrors RAG script pattern)
+  // ─────────────────────────────────────────────
+  const apiUrlInput = document.getElementById('api-url-input');
+  const saveUrlBtn  = document.getElementById('save-url-btn');
+  const apiStatusEl = document.getElementById('api-status');
+  const headerTotal = document.getElementById('header-total');
+  const statCount   = document.getElementById('stat-count');
+  const statTotal   = document.getElementById('stat-total');
+  const statAvg     = document.getElementById('stat-avg');
+  const statCats    = document.getElementById('stat-cats');
+  const expenseList = document.getElementById('expense-list');
+  const entryCount  = document.getElementById('entry-count');
+  const searchInput = document.getElementById('search-input');
+  const filterCat   = document.getElementById('filter-cat');
+  const catSuggest  = document.getElementById('cat-suggestions');
+  const chartCard   = document.getElementById('chart-card');
+  const chartBars   = document.getElementById('chart-bars');
+  const addBtn      = document.getElementById('add-btn');
+  const fAmount     = document.getElementById('f-amount');
+  const fCategory   = document.getElementById('f-category');
+  const fDate       = document.getElementById('f-date');
+  const fDesc       = document.getElementById('f-desc');
+  const toastEl     = document.getElementById('toast');
+
+  // ─────────────────────────────────────────────
+  //  App state
+  // ─────────────────────────────────────────────
+  let API_BASE    = localStorage.getItem('expense_api_url') || 'http://localhost:8000';
+  let allExpenses = [];
+  let isLoading   = false;
+  let toastTimer  = null;
+
+  // ─────────────────────────────────────────────
+  //  Initialise
+  // ─────────────────────────────────────────────
+  apiUrlInput.value   = API_BASE;
+  fDate.valueAsDate   = new Date();   // default date = today
+
+  // ─────────────────────────────────────────────
+  //  Event listeners  (declarative, no inline HTML)
+  // ─────────────────────────────────────────────
+  saveUrlBtn.addEventListener('click',  saveApiUrl);
+  apiUrlInput.addEventListener('keydown', e => { if (e.key === 'Enter') saveApiUrl(); });
+
+  addBtn.addEventListener('click', addExpense);
+  fAmount.addEventListener('input', () => {
+    addBtn.disabled = fAmount.value.trim() === '' || isLoading;
+  });
+
+  searchInput.addEventListener('input',  filterExpenses);
+  filterCat.addEventListener('change',   filterExpenses);
+
+  // ─────────────────────────────────────────────
+  //  API URL helpers  (mirrors RAG setStatus)
+  // ─────────────────────────────────────────────
+  function saveApiUrl() {
+    API_BASE = apiUrlInput.value.trim().replace(/\/$/, '');
+    localStorage.setItem('expense_api_url', API_BASE);
+    showToast('API URL saved', 'success');
+    loadAll();
+  }
+
+  function setStatus(type, msg) {
+    const colours = {
+      idle:    '',
+      loading: 'var(--muted)',
+      ok:      'var(--accent-dim)',
+      err:     'var(--danger)',
+    };
+    apiStatusEl.textContent = msg;
+    apiStatusEl.style.color = colours[type] || '';
+  }
+
+  // ─────────────────────────────────────────────
+  //  Toast  (mirrors RAG pattern exactly)
+  // ─────────────────────────────────────────────
+  function showToast(msg, type = 'success') {
+    toastEl.textContent = msg;
+    toastEl.className   = `show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.className = ''; }, 3200);
+  }
+
+  // ─────────────────────────────────────────────
+  //  Utilities
+  // ─────────────────────────────────────────────
+  function fmt(n) { return '$' + Number(n || 0).toFixed(2); }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function now() {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // ─────────────────────────────────────────────
+  //  Core fetch wrapper  (mirrors RAG apiFetch)
+  // ─────────────────────────────────────────────
+  async function apiFetch(path, opts = {}) {
+    const res = await fetch(API_BASE + path, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return res.json();
+  }
+
+  // ─────────────────────────────────────────────
+  //  Load all data  (mirrors RAG upload success flow)
+  // ─────────────────────────────────────────────
+  async function loadAll() {
+    setStatus('loading', '⏳ Connecting…');
+    try {
+      const [expenses, stats] = await Promise.all([
+        apiFetch('/expenses'),
+        apiFetch('/expenses/stats').catch(() => null),
+      ]);
+
+      setStatus('ok', '● Connected');
+
+      allExpenses = Array.isArray(expenses)
+        ? expenses
+        : (expenses.expenses || expenses.data || []);
+
+      renderExpenses(allExpenses);
+      buildFilterOptions(allExpenses);
+      updateStats(stats, allExpenses);
+      renderChart(allExpenses);
+
+    } catch (e) {
+      setStatus('err', '● Unreachable');
+      showToast('Cannot reach API — check the URL above', 'error');
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  //  Stats
+  // ─────────────────────────────────────────────
+  function updateStats(stats, expenses) {
+    let total = 0, avg = 0, cats = 0;
+
+    if (stats && stats.total_spent !== undefined) {
+      total = stats.total_spent;
+      avg   = stats.average || stats.average_expense || 0;
+      cats  = stats.category_count || stats.categories || 0;
+    } else {
+      const amounts = expenses.map(e => Number(e.amount || 0));
+      total = amounts.reduce((a, b) => a + b, 0);
+      avg   = amounts.length ? total / amounts.length : 0;
+      cats  = new Set(expenses.map(e => (e.category || '').toLowerCase())).size;
+    }
+
+    headerTotal.textContent = fmt(total);
+    statCount.textContent   = expenses.length;
+    statTotal.textContent   = fmt(total);
+    statAvg.textContent     = fmt(avg);
+    statCats.textContent    = cats;
+  }
+
+  // ─────────────────────────────────────────────
+  //  Render expense list
+  // ─────────────────────────────────────────────
+  function renderExpenses(list) {
+    entryCount.textContent = `${list.length} entr${list.length === 1 ? 'y' : 'ies'}`;
+
+    if (!list.length) {
+      expenseList.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-diamond"></div>
+          <p>No expenses yet.<br>Add one to get started.</p>
+        </div>`;
+      return;
+    }
+
+    expenseList.innerHTML = list.map(e => {
+      const id   = e.id ?? e._id ?? e.expense_id ?? '';
+      const desc = e.description || e.name || e.title || '—';
+      const cat  = e.category || 'Other';
+      const date = e.date
+        ? new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '';
+      return `
+        <div class="expense-item" data-id="${escapeHtml(String(id))}">
+          <span class="expense-cat-badge">${escapeHtml(cat)}</span>
+          <div class="expense-info">
+            <div class="expense-desc">${escapeHtml(desc)}</div>
+            ${date ? `<div class="expense-date">${date}</div>` : ''}
+          </div>
+          <div class="expense-amount">${fmt(e.amount)}</div>
+          <button class="btn-delete" title="Delete expense" data-id="${escapeHtml(String(id))}">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="2" y1="2" x2="12" y2="12"/>
+              <line x1="12" y1="2" x2="2" y2="12"/>
+            </svg>
+          </button>
+        </div>`;
+    }).join('');
+
+    // Event delegation — attach after render (mirrors RAG listener pattern)
+    expenseList.querySelectorAll('.btn-delete').forEach(btn => {
+      btn.addEventListener('click', () => deleteExpense(btn.dataset.id));
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  //  Filter / search
+  // ─────────────────────────────────────────────
+  function buildFilterOptions(expenses) {
+    const cats = [...new Set(expenses.map(e => e.category || 'Other'))].sort();
+    filterCat.innerHTML  = `<option value="">All categories</option>`
+      + cats.map(c => `<option>${escapeHtml(c)}</option>`).join('');
+    catSuggest.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">`).join('');
+  }
+
+  function filterExpenses() {
+    const q   = searchInput.value.toLowerCase();
+    const cat = filterCat.value.toLowerCase();
+    const filtered = allExpenses.filter(e => {
+      const matchQ = !q
+        || (e.description || '').toLowerCase().includes(q)
+        || (e.category    || '').toLowerCase().includes(q);
+      const matchC = !cat || (e.category || '').toLowerCase() === cat;
+      return matchQ && matchC;
+    });
+    renderExpenses(filtered);
+  }
+
+  // ─────────────────────────────────────────────
+  //  Category bar chart
+  // ─────────────────────────────────────────────
+  function renderChart(expenses) {
+    if (!expenses.length) { chartCard.style.display = 'none'; return; }
+
+    const totals = {};
+    expenses.forEach(e => {
+      const c = e.category || 'Other';
+      totals[c] = (totals[c] || 0) + Number(e.amount || 0);
+    });
+
+    const sorted  = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+    const max     = sorted[0][1];
+    const overall = sorted.reduce((s, [, v]) => s + v, 0);
+
+    chartBars.innerHTML = sorted.map(([cat, val]) => `
+      <div class="chart-row">
+        <div class="chart-label" title="${escapeHtml(cat)}">${escapeHtml(cat)}</div>
+        <div class="chart-track">
+          <div class="chart-fill" style="width:${(val / max * 100).toFixed(1)}%"></div>
+        </div>
+        <div class="chart-pct">${(val / overall * 100).toFixed(0)}%</div>
+      </div>`).join('');
+
+    chartCard.style.display = 'block';
+  }
+
+  // ─────────────────────────────────────────────
+  //  Add expense  (mirrors RAG upload flow)
+  // ─────────────────────────────────────────────
+  async function addExpense() {
+    if (isLoading) return;
+
+    const amount      = parseFloat(fAmount.value);
+    const category    = fCategory.value.trim();
+    const date        = fDate.value;
+    const description = fDesc.value.trim();
+
+    if (!amount || amount <= 0) { showToast('Enter a valid amount', 'error'); return; }
+    if (!category)              { showToast('Enter a category', 'error');     return; }
+
+    isLoading        = true;
+    addBtn.disabled  = true;
+    addBtn.innerHTML = '<span class="spinner"></span>';
+    setStatus('loading', '⏳ Saving…');
+
+    try {
+      await apiFetch('/expenses', {
+        method: 'POST',
+        body: JSON.stringify({ amount, category, date, description }),
+      });
+
+      showToast('Expense added ✓', 'success');
+
+      // Reset form
+      fAmount.value     = '';
+      fCategory.value   = '';
+      fDate.valueAsDate = new Date();
+      fDesc.value       = '';
+
+      await loadAll();   // refresh list + stats
+
+    } catch (e) {
+      showToast('Failed to add: ' + e.message, 'error');
+      setStatus('err', '● Error');
+    } finally {
+      isLoading          = false;
+      addBtn.disabled    = false;
+      addBtn.textContent = 'Add Expense';
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  //  Delete expense  (mirrors RAG error handling)
+  // ─────────────────────────────────────────────
+  async function deleteExpense(id) {
+    if (!id || isLoading) return;
+
+    // Visual feedback: fade the row out immediately
+    const row = expenseList.querySelector(`[data-id="${id}"]`);
+    if (row) row.classList.add('deleting');
+
+    setStatus('loading', '⏳ Deleting…');
+    try {
+      await apiFetch(`/expenses/${id}`, { method: 'DELETE' });
+      showToast('Expense deleted', 'success');
+      await loadAll();
+    } catch (e) {
+      if (row) row.classList.remove('deleting');
+      showToast('Delete failed: ' + e.message, 'error');
+      setStatus('err', '● Error');
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  //  Boot
+  // ─────────────────────────────────────────────
+  loadAll();
+</script>
+</body>
+</html>
