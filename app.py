@@ -1,14 +1,81 @@
-expenses = {}
-expense_id_counter = 1
+#--------------------------------------------------UNDER DEVELOPMENT-------------------------------------------------
+from fastapi import FastAPI , HTTPException
+from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
+import tempfile, os, uuid, logging
+from passlib.context import CryptContext
+
+app = FastAPI()
+#DUMMY CODE TO BE REFINED
+password = [] # DUMMY... SECURE DATABASE TO BE ADDED 
+sessions: dict = {}
+active_sessions = {}
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+class Login(BaseModel):
+    user_name: str
+    password:str
+
+class Expense(BaseModel):
+    amount: float
+    category: str
+    date: str
+    description: str
+
+class Signup(BaseModel):
+    username: str
+    password: str
 
 
-def add_expense():
-    global expense_id_counter
 
-    amount = float(input("Enter amount: "))
-    category = input("Enter category: ")
-    date = input("Enter date (YYYY-MM-DD): ")
-    description = input("Enter description: ")
+hasher = CryptContext(schemes=["bcrypt"])
+
+@app.post("/signup")
+def adding(add: Signup):
+    username = add.username
+    user_pass = add.password
+    hashed_pass = hasher.hash(user_pass)
+    password.append(hashed_pass)
+
+@app.post("/login")
+def hash_password(login: Login):
+    user_pass = Login.password
+    hashed_pass = hasher.hash(user_pass)
+    return {"sucessfully hashed: ":hashed_pass}
+
+@app.post("/verify_login")
+def verify(login: Login):
+    to_confirm = login.password
+    verify = hasher.verify(to_confirm,password[-1])
+    if verify:
+        token = str(uuid.uuid4())
+        active_sessions[token] = login.user_name
+        return {"token":token,"message":"Sucessfully login"}
+    else:
+        raise HTTPException(status_code=401, detail="Incorrect password")
+    
+#-------------------------------------------------UNDER DEVELOPMENT
+
+"""
+@app.post("/add_expense")
+async def add_expense(expense: Expense):
+    expenses = {}
+    session_id = str(uuid.uuid4())
+    expense_id_counter = 1
+
+    amount = expense.amount
+    category = expense.category
+    date = expense.date
+    description = expense.description
 
     expenses[expense_id_counter] = {
         "amount": amount,
@@ -19,6 +86,7 @@ def add_expense():
 
     print(f"\nExpense added with ID {expense_id_counter}\n")
     expense_id_counter += 1
+    sessions[session_id] = {"expense_id":expense_id_counter,"expenses":expenses}
 
 
 def view_all_expenses():
@@ -156,3 +224,4 @@ def main_menu():
 
 
 main_menu()
+"""
