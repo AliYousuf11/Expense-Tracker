@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign Up - ExpenseTrack</title>
+  <style>
+    /* (Using the exact same CSS as login.html) */
+    :root {
+      --bg: #0d0d0d; --surface: #181818; --border: #2a2a2a;
+      --accent: #c8f135; --text: #f0f0f0; --muted: #666;
+      --danger: #e05252; --font-sans: 'Segoe UI', system-ui, sans-serif; --radius: 10px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font-sans); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 40px; width: 100%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.2rem; letter-spacing: -.3px; margin-bottom: 30px; justify-content: center; }
+    .logo-diamond { width: 16px; height: 16px; background: var(--accent); transform: rotate(45deg); border-radius: 3px; flex-shrink: 0; }
+    .auth-title { font-size: 1.5rem; margin-bottom: 8px; text-align: center; }
+    .auth-subtitle { color: var(--muted); font-size: 0.9rem; text-align: center; margin-bottom: 30px; }
+    .input-group { margin-bottom: 20px; }
+    .input-group label { display: block; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+    .input-group input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 12px 14px; font-size: 0.95rem; outline: none; transition: border-color 0.2s; }
+    .input-group input:focus { border-color: var(--accent); }
+    .btn-primary { width: 100%; padding: 14px; background: var(--accent); color: var(--bg); border: none; border-radius: 6px; font-weight: 700; font-size: 0.95rem; cursor: pointer; margin-top: 10px; transition: opacity 0.2s; }
+    .btn-primary:hover { opacity: 0.9; }
+    .auth-footer { text-align: center; margin-top: 24px; font-size: 0.85rem; color: var(--muted); }
+    .auth-footer a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .auth-footer a:hover { text-decoration: underline; }
+    .error-msg { background: rgba(224, 82, 82, 0.1); color: var(--danger); padding: 10px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 20px; text-align: center; display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="auth-card">
+    <div class="logo">
+      <div class="logo-diamond"></div>
+      ExpenseTrack
+    </div>
+    <h1 class="auth-title">Create Account</h1>
+    <p class="auth-subtitle">Start tracking your expenses today.</p>
+    
+    <div id="errorMsg" class="error-msg">Error occurred.</div>
+
+    <form id="authForm">
+      <div class="input-group">
+        <label>Username</label>
+        <input type="text" name="user_name" required />
+      </div>
+      <div class="input-group">
+        <label>Password</label>
+        <input type="password" name="password" required />
+      </div>
+      <div class="input-group">
+        <label>Confirm Password</label>
+        <input type="password" name="confirm_password" required />
+      </div>
+      <button type="submit" class="btn-primary">Create Account</button>
+    </form>
+    
+    <div class="auth-footer">
+      Already have an account? <a href="login.html">Sign in</a>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('authForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const pass = formData.get('password');
+      const confirmPass = formData.get('confirm_password');
+      
+      // Frontend check: Ensure passwords match before bothering the server
+      if (pass !== confirmPass) {
+        document.getElementById('errorMsg').style.display = 'block';
+        document.getElementById('errorMsg').innerText = 'Passwords do not match!';
+        return;
+      }
+
+      const data = {
+        user_name: formData.get('user_name'),
+        password: pass
+      };
+      
+      try {
+        // NOTE: You will need to create a /signup endpoint in your FastAPI backend!
+        const response = await fetch('http://127.0.0.1:8000/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+          // If successful, redirect to login
+          window.location.href = 'login.html'; 
+        } else {
+          document.getElementById('errorMsg').style.display = 'block';
+          document.getElementById('errorMsg').innerText = 'Signup failed. Username might be taken.';
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    });
+  </script>
+</body>
+</html>
