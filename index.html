@@ -29,110 +29,6 @@
       min-height: 100vh;
     }
 
-    /* ── Auth pages ── */
-    .auth-container {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-
-    .auth-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 40px;
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 700;
-      font-size: 1.2rem;
-      letter-spacing: -.3px;
-      margin-bottom: 30px;
-      justify-content: center;
-    }
-
-    .logo-diamond {
-      width: 16px; height: 16px;
-      background: var(--accent);
-      transform: rotate(45deg);
-      border-radius: 3px;
-      flex-shrink: 0;
-    }
-
-    .auth-title { font-size: 1.5rem; margin-bottom: 8px; text-align: center; }
-    .auth-subtitle { color: var(--muted); font-size: 0.9rem; text-align: center; margin-bottom: 30px; }
-
-    .input-group { margin-bottom: 20px; }
-    .input-group label {
-      display: block;
-      font-size: 0.75rem;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 8px;
-      font-weight: 600;
-    }
-
-    .input-group input {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      padding: 12px 14px;
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    .input-group input:focus { border-color: var(--accent); }
-
-    .btn-primary {
-      width: 100%;
-      padding: 14px;
-      background: var(--accent);
-      color: var(--bg);
-      border: none;
-      border-radius: 6px;
-      font-weight: 700;
-      font-size: 0.95rem;
-      cursor: pointer;
-      margin-top: 10px;
-      transition: opacity 0.2s;
-    }
-    .btn-primary:hover { opacity: 0.9; }
-
-    .auth-footer {
-      text-align: center;
-      margin-top: 24px;
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
-    .auth-footer a { color: var(--accent); text-decoration: none; font-weight: 600; cursor: pointer; }
-    .auth-footer a:hover { text-decoration: underline; }
-
-    .error-msg {
-      background: rgba(224, 82, 82, 0.1);
-      color: var(--danger);
-      padding: 10px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      margin-bottom: 20px;
-      text-align: center;
-      display: none;
-    }
-
-    /* ── Hide/show pages ── */
-    .page { display: none; }
-    .page.active { display: block; }
-
     /* ── Config banner ── */
     #config-bar {
       background: #141400;
@@ -182,6 +78,21 @@
       top: 0;
       z-index: 100;
     }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: -.3px;
+    }
+    .logo-diamond {
+      width: 16px; height: 16px;
+      background: var(--accent);
+      transform: rotate(45deg);
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
     .header-total { text-align: right; }
     .header-total .label {
       font-size: .6rem;
@@ -193,31 +104,6 @@
       font-family: var(--font-mono);
       font-size: 1.25rem;
       color: var(--accent);
-    }
-
-    .logout-btn {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 6px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.8rem;
-      transition: all 0.2s;
-    }
-    .logout-btn:hover {
-      border-color: var(--danger);
-      color: var(--danger);
-    }
-
-    .user-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .username-display {
-      color: var(--accent);
-      font-size: 0.85rem;
     }
 
     /* ── Stats ── */
@@ -505,415 +391,178 @@
 </head>
 <body>
 
-<!-- ── PAGE: LOGIN ── -->
-<div id="page-login" class="page active">
-  <div class="auth-container">
-    <div class="auth-card">
-      <div class="logo">
-        <div class="logo-diamond"></div>
-        ExpenseTrack
-      </div>
-      <h1 class="auth-title">Sign In</h1>
-      <p class="auth-subtitle">Welcome back! Enter your details.</p>
-      
-      <div id="login-error" class="error-msg">Invalid username or password.</div>
+<!-- ── Config bar ── -->
+<div id="config-bar">
+  <span>⚙ API Base URL</span>
+  <input type="text" id="api-url-input" placeholder="https://your-backend.onrender.com" />
+  <button id="save-url-btn">Connect</button>
+  <span id="api-status"></span>
+</div>
 
-      <form id="loginForm">
-        <div class="input-group">
-          <label>Username</label>
-          <input type="text" name="user_name" required />
-        </div>
-        <div class="input-group">
-          <label>Password</label>
-          <input type="password" name="password" required />
-        </div>
-        <button type="submit" class="btn-primary">Sign In</button>
-      </form>
-      
-      <div class="auth-footer">
-        Don't have an account? <a id="go-to-signup">Sign up</a>
-      </div>
+<!-- ── Header ── -->
+<header>
+  <div class="logo">
+    <div class="logo-diamond"></div>
+    <span>ExpenseTrack</span>
+  </div>
+  <div class="header-total">
+    <div class="label">Total Spent</div>
+    <div class="amount" id="header-total">$0.00</div>
+  </div>
+</header>
+
+<!-- ── Stats ── -->
+<div class="stats-wrap">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value" id="stat-count">0</div>
+      <div class="stat-label">Expenses</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-total">$0.00</div>
+      <div class="stat-label">Total Spent</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-avg">$0.00</div>
+      <div class="stat-label">Average</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-cats">0</div>
+      <div class="stat-label">Categories</div>
     </div>
   </div>
 </div>
 
-<!-- ── PAGE: SIGNUP ── -->
-<div id="page-signup" class="page">
-  <div class="auth-container">
-    <div class="auth-card">
-      <div class="logo">
-        <div class="logo-diamond"></div>
-        ExpenseTrack
-      </div>
-      <h1 class="auth-title">Create Account</h1>
-      <p class="auth-subtitle">Start tracking your expenses today.</p>
-      
-      <div id="signup-error" class="error-msg">Error occurred.</div>
+<!-- ── Main ── -->
+<main>
 
-      <form id="signupForm">
-        <div class="input-group">
-          <label>Username</label>
-          <input type="text" name="user_name" required />
-        </div>
-        <div class="input-group">
-          <label>Password</label>
-          <input type="password" name="password" required />
-        </div>
-        <div class="input-group">
-          <label>Confirm Password</label>
-          <input type="password" name="confirm_password" required />
-        </div>
-        <button type="submit" class="btn-primary">Create Account</button>
-      </form>
-      
-      <div class="auth-footer">
-        Already have an account? <a id="go-to-login">Sign in</a>
+  <!-- Left: Add Expense form -->
+  <div class="card">
+    <div class="card-title">Add Expense</div>
+
+    <div class="form-group">
+      <label for="f-amount">Amount</label>
+      <div class="input-wrap">
+        <span class="input-prefix">$</span>
+        <input type="number" id="f-amount" placeholder="0.00" step="0.01" min="0" />
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ── PAGE: DASHBOARD ── -->
-<div id="page-dashboard" class="page">
-  <!-- Config bar -->
-  <div id="config-bar">
-    <span>⚙ API Base URL</span>
-    <input type="text" id="api-url-input" placeholder="https://your-backend.onrender.com" />
-    <button id="save-url-btn">Connect</button>
-    <span id="api-status"></span>
+    <div class="form-group">
+      <label for="f-category">Category</label>
+      <input type="text" id="f-category" placeholder="e.g. Food, Transport…" list="cat-suggestions" />
+      <datalist id="cat-suggestions"></datalist>
+    </div>
+
+    <div class="form-group">
+      <label for="f-date">Date</label>
+      <input type="date" id="f-date" />
+    </div>
+
+    <div class="form-group">
+      <label for="f-desc">Description</label>
+      <textarea id="f-desc" placeholder="What was this for?"></textarea>
+    </div>
+
+    <button class="btn-primary" id="add-btn">Add Expense</button>
   </div>
 
-  <!-- Header -->
-  <header>
-    <div class="logo">
-      <div class="logo-diamond"></div>
-      <span>ExpenseTrack</span>
-    </div>
-    <div class="header-total">
-      <div class="label">Total Spent</div>
-      <div class="amount" id="header-total">$0.00</div>
-    </div>
-    <div class="user-info">
-      <span class="username-display" id="username-display"></span>
-      <button class="logout-btn" id="logout-btn">Logout</button>
-    </div>
-  </header>
+  <!-- Right: List + Chart -->
+  <div class="right-col">
 
-  <!-- Stats -->
-  <div class="stats-wrap">
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-value" id="stat-count">0</div>
-        <div class="stat-label">Expenses</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="stat-total">$0.00</div>
-        <div class="stat-label">Total Spent</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="stat-avg">$0.00</div>
-        <div class="stat-label">Average</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="stat-cats">0</div>
-        <div class="stat-label">Categories</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Main -->
-  <main>
-    <!-- Left: Add Expense form -->
     <div class="card">
-      <div class="card-title">Add Expense</div>
+      <div class="expenses-header">
+        <div class="card-title" style="margin-bottom:0">All Expenses</div>
+        <div class="entry-count" id="entry-count">0 entries</div>
+      </div>
 
-      <div class="form-group">
-        <label for="f-amount">Amount</label>
-        <div class="input-wrap">
-          <span class="input-prefix">$</span>
-          <input type="number" id="f-amount" placeholder="0.00" step="0.01" min="0" />
+      <div class="search-row">
+        <input type="text" id="search-input" placeholder="Search description or category…" />
+        <select id="filter-cat">
+          <option value="">All categories</option>
+        </select>
+      </div>
+
+      <div id="expense-list" class="expense-list">
+        <div class="empty-state">
+          <div class="empty-diamond"></div>
+          <p>No expenses yet.<br>Add one to get started.</p>
         </div>
       </div>
-
-      <div class="form-group">
-        <label for="f-category">Category</label>
-        <input type="text" id="f-category" placeholder="e.g. Food, Transport…" list="cat-suggestions" />
-        <datalist id="cat-suggestions"></datalist>
-      </div>
-
-      <div class="form-group">
-        <label for="f-date">Date</label>
-        <input type="date" id="f-date" />
-      </div>
-
-      <div class="form-group">
-        <label for="f-desc">Description</label>
-        <textarea id="f-desc" placeholder="What was this for?"></textarea>
-      </div>
-
-      <button class="btn-primary" id="add-btn">Add Expense</button>
     </div>
 
-    <!-- Right: List + Chart -->
-    <div class="right-col">
-
-      <div class="card">
-        <div class="expenses-header">
-          <div class="card-title" style="margin-bottom:0">All Expenses</div>
-          <div class="entry-count" id="entry-count">0 entries</div>
-        </div>
-
-        <div class="search-row">
-          <input type="text" id="search-input" placeholder="Search description or category…" />
-          <select id="filter-cat">
-            <option value="">All categories</option>
-          </select>
-        </div>
-
-        <div id="expense-list" class="expense-list">
-          <div class="empty-state">
-            <div class="empty-diamond"></div>
-            <p>No expenses yet.<br>Add one to get started.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="card" id="chart-card" style="display:none">
-        <div class="card-title">Spending by Category</div>
-        <div class="chart-bars" id="chart-bars"></div>
-      </div>
-
+    <div class="card" id="chart-card" style="display:none">
+      <div class="card-title">Spending by Category</div>
+      <div class="chart-bars" id="chart-bars"></div>
     </div>
-  </main>
-</div>
 
-<!-- Toast -->
+  </div>
+</main>
+
 <div id="toast"></div>
 
 <script>
   // ─────────────────────────────────────────────
-  //  PAGE MANAGEMENT
-  // ─────────────────────────────────────────────
-  function showPage(pageId) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById(pageId).classList.add('active');
-  }
-
-  // ─────────────────────────────────────────────
-  //  AUTH TOKEN MANAGEMENT
-  // ─────────────────────────────────────────────
-  function getAuthToken() {
-    return localStorage.getItem('expense_auth_token');
-  }
-
-  function setAuthToken(token, username) {
-    localStorage.setItem('expense_auth_token', token);
-    localStorage.setItem('expense_username', username);
-  }
-
-  function clearAuthToken() {
-    localStorage.removeItem('expense_auth_token');
-    localStorage.removeItem('expense_username');
-  }
-
-  function isAuthenticated() {
-    return !!getAuthToken();
-  }
-
-  // ─────────────────────────────────────────────
-  //  API URL MANAGEMENT
-  // ─────────────────────────────────────────────
-  let API_BASE = localStorage.getItem('expense_api_url') || 'http://localhost:8000';
-
-  // ─────────────────────────────────────────────
-  //  TOAST
-  // ─────────────────────────────────────────────
-  let toastTimer = null;
-  function showToast(msg, type = 'success') {
-    const toastEl = document.getElementById('toast');
-    toastEl.textContent = msg;
-    toastEl.className = `show ${type}`;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { toastEl.className = ''; }, 3200);
-  }
-
-  // ─────────────────────────────────────────────
-  //  API FETCH WITH AUTH
-  // ─────────────────────────────────────────────
-  async function apiFetch(path, opts = {}) {
-    const token = getAuthToken();
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-      ...(opts.headers || {})
-    };
-
-    const res = await fetch(API_BASE + path, {
-      headers,
-      ...opts,
-    });
-
-    // If unauthorized, redirect to login
-    if (res.status === 401) {
-      clearAuthToken();
-      showPage('page-login');
-      throw new Error('Session expired. Please login again.');
-    }
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `HTTP ${res.status}`);
-    }
-    return res.json();
-  }
-
-  // ─────────────────────────────────────────────
-  //  AUTH: LOGIN
-  // ─────────────────────────────────────────────
-  document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const data = {
-      user_name: formData.get('user_name'),
-      password: formData.get('password')
-    };
-
-    const errorEl = document.getElementById('login-error');
-    errorEl.style.display = 'none';
-
-    try {
-      const response = await fetch(API_BASE + '/verify_login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setAuthToken(result.token, data.user_name);
-        showPage('page-dashboard');
-        document.getElementById('username-display').textContent = `👤 ${data.user_name}`;
-        loadAll();
-      } else {
-        errorEl.style.display = 'block';
-      }
-    } catch (error) {
-      errorEl.style.display = 'block';
-      console.error('Login error:', error);
-    }
-  });
-
-  // ─────────────────────────────────────────────
-  //  AUTH: SIGNUP
-  // ─────────────────────────────────────────────
-  document.getElementById('signupForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const pass = formData.get('password');
-    const confirmPass = formData.get('confirm_password');
-
-    const errorEl = document.getElementById('signup-error');
-
-    if (pass !== confirmPass) {
-      errorEl.style.display = 'block';
-      errorEl.innerText = 'Passwords do not match!';
-      return;
-    }
-
-    errorEl.style.display = 'none';
-
-    const data = {
-      username: formData.get('user_name'),
-      password: pass
-    };
-
-    try {
-      const response = await fetch(API_BASE + '/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-
-      if (response.ok) {
-        showToast('Account created successfully! Please login.', 'success');
-        showPage('page-login');
-      } else {
-        errorEl.style.display = 'block';
-        errorEl.innerText = 'Signup failed. Username might be taken.';
-      }
-    } catch (error) {
-      errorEl.style.display = 'block';
-      errorEl.innerText = 'Signup failed. Please try again.';
-      console.error('Signup error:', error);
-    }
-  });
-
-  // ─────────────────────────────────────────────
-  //  AUTH: PAGE SWITCHING
-  // ─────────────────────────────────────────────
-  document.getElementById('go-to-signup').addEventListener('click', () => showPage('page-signup'));
-  document.getElementById('go-to-login').addEventListener('click', () => showPage('page-login'));
-
-  // ─────────────────────────────────────────────
-  //  AUTH: LOGOUT
-  // ─────────────────────────────────────────────
-  document.getElementById('logout-btn').addEventListener('click', () => {
-    clearAuthToken();
-    showPage('page-login');
-    showToast('Logged out successfully', 'success');
-  });
-
-  // ─────────────────────────────────────────────
-  //  CONFIG BAR
+  //  Element refs  (mirrors RAG script pattern)
   // ─────────────────────────────────────────────
   const apiUrlInput = document.getElementById('api-url-input');
-  apiUrlInput.value = API_BASE;
+  const saveUrlBtn  = document.getElementById('save-url-btn');
+  const apiStatusEl = document.getElementById('api-status');
+  const headerTotal = document.getElementById('header-total');
+  const statCount   = document.getElementById('stat-count');
+  const statTotal   = document.getElementById('stat-total');
+  const statAvg     = document.getElementById('stat-avg');
+  const statCats    = document.getElementById('stat-cats');
+  const expenseList = document.getElementById('expense-list');
+  const entryCount  = document.getElementById('entry-count');
+  const searchInput = document.getElementById('search-input');
+  const filterCat   = document.getElementById('filter-cat');
+  const catSuggest  = document.getElementById('cat-suggestions');
+  const chartCard   = document.getElementById('chart-card');
+  const chartBars   = document.getElementById('chart-bars');
+  const addBtn      = document.getElementById('add-btn');
+  const fAmount     = document.getElementById('f-amount');
+  const fCategory   = document.getElementById('f-category');
+  const fDate       = document.getElementById('f-date');
+  const fDesc       = document.getElementById('f-desc');
+  const toastEl     = document.getElementById('toast');
 
-  document.getElementById('save-url-btn').addEventListener('click', () => {
+  // ─────────────────────────────────────────────
+  //  App state
+  // ─────────────────────────────────────────────
+  let API_BASE    = localStorage.getItem('expense_api_url') || 'http://localhost:8000';
+  let allExpenses = [];
+  let isLoading   = false;
+  let toastTimer  = null;
+
+  // ─────────────────────────────────────────────
+  //  Initialise
+  // ─────────────────────────────────────────────
+  apiUrlInput.value   = API_BASE;
+  fDate.valueAsDate   = new Date();   // default date = today
+
+  // ─────────────────────────────────────────────
+  //  Event listeners  (declarative, no inline HTML)
+  // ─────────────────────────────────────────────
+  saveUrlBtn.addEventListener('click',  saveApiUrl);
+  apiUrlInput.addEventListener('keydown', e => { if (e.key === 'Enter') saveApiUrl(); });
+
+  addBtn.addEventListener('click', addExpense);
+  fAmount.addEventListener('input', () => {
+    addBtn.disabled = fAmount.value.trim() === '' || isLoading;
+  });
+
+  searchInput.addEventListener('input',  filterExpenses);
+  filterCat.addEventListener('change',   filterExpenses);
+
+  // ─────────────────────────────────────────────
+  //  API URL helpers  (mirrors RAG setStatus)
+  // ─────────────────────────────────────────────
+  function saveApiUrl() {
     API_BASE = apiUrlInput.value.trim().replace(/\/$/, '');
     localStorage.setItem('expense_api_url', API_BASE);
     showToast('API URL saved', 'success');
-    if (isAuthenticated()) loadAll();
-  });
-
-  apiUrlInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('save-url-btn').click();
-  });
-
-  // ─────────────────────────────────────────────
-  //  DASHBOARD ELEMENTS
-  // ─────────────────────────────────────────────
-  const headerTotal = document.getElementById('header-total');
-  const statCount = document.getElementById('stat-count');
-  const statTotal = document.getElementById('stat-total');
-  const statAvg = document.getElementById('stat-avg');
-  const statCats = document.getElementById('stat-cats');
-  const expenseList = document.getElementById('expense-list');
-  const entryCount = document.getElementById('entry-count');
-  const searchInput = document.getElementById('search-input');
-  const filterCat = document.getElementById('filter-cat');
-  const catSuggest = document.getElementById('cat-suggestions');
-  const chartCard = document.getElementById('chart-card');
-  const chartBars = document.getElementById('chart-bars');
-  const addBtn = document.getElementById('add-btn');
-  const fAmount = document.getElementById('f-amount');
-  const fCategory = document.getElementById('f-category');
-  const fDate = document.getElementById('f-date');
-  const fDesc = document.getElementById('f-desc');
-  const apiStatusEl = document.getElementById('api-status');
-
-  let allExpenses = [];
-  let isLoading = false;
-
-  // ─────────────────────────────────────────────
-  //  UTILITIES
-  // ─────────────────────────────────────────────
-  function fmt(n) { return '$' + Number(n || 0).toFixed(2); }
-
-  function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    loadAll();
   }
 
   function setStatus(type, msg) {
@@ -928,12 +577,50 @@
   }
 
   // ─────────────────────────────────────────────
-  //  LOAD DATA
+  //  Toast  (mirrors RAG pattern exactly)
+  // ─────────────────────────────────────────────
+  function showToast(msg, type = 'success') {
+    toastEl.textContent = msg;
+    toastEl.className   = `show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.className = ''; }, 3200);
+  }
+
+  // ─────────────────────────────────────────────
+  //  Utilities
+  // ─────────────────────────────────────────────
+  function fmt(n) { return '$' + Number(n || 0).toFixed(2); }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function now() {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // ─────────────────────────────────────────────
+  //  Core fetch wrapper  (mirrors RAG apiFetch)
+  // ─────────────────────────────────────────────
+  async function apiFetch(path, opts = {}) {
+    const res = await fetch(API_BASE + path, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    return res.json();
+  }
+
+  // ─────────────────────────────────────────────
+  //  Load all data  (mirrors RAG upload success flow)
   // ─────────────────────────────────────────────
   async function loadAll() {
-    if (!isAuthenticated()) return;
-
-    setStatus('loading', '⏳ Loading…');
+    setStatus('loading', '⏳ Connecting…');
     try {
       const [expenses, stats] = await Promise.all([
         apiFetch('/expenses'),
@@ -952,41 +639,37 @@
       renderChart(allExpenses);
 
     } catch (e) {
-      if (e.message.includes('Session expired')) {
-        // Already handled by apiFetch
-        return;
-      }
       setStatus('err', '● Unreachable');
       showToast('Cannot reach API — check the URL above', 'error');
     }
   }
 
   // ─────────────────────────────────────────────
-  //  STATS
+  //  Stats
   // ─────────────────────────────────────────────
   function updateStats(stats, expenses) {
     let total = 0, avg = 0, cats = 0;
 
     if (stats && stats.total_spent !== undefined) {
       total = stats.total_spent;
-      avg = stats.average || stats.average_expense || 0;
-      cats = stats.category_count || stats.categories || 0;
+      avg   = stats.average || stats.average_expense || 0;
+      cats  = stats.category_count || stats.categories || 0;
     } else {
       const amounts = expenses.map(e => Number(e.amount || 0));
       total = amounts.reduce((a, b) => a + b, 0);
-      avg = amounts.length ? total / amounts.length : 0;
-      cats = new Set(expenses.map(e => (e.category || '').toLowerCase())).size;
+      avg   = amounts.length ? total / amounts.length : 0;
+      cats  = new Set(expenses.map(e => (e.category || '').toLowerCase())).size;
     }
 
     headerTotal.textContent = fmt(total);
-    statCount.textContent = expenses.length;
-    statTotal.textContent = fmt(total);
-    statAvg.textContent = fmt(avg);
-    statCats.textContent = cats;
+    statCount.textContent   = expenses.length;
+    statTotal.textContent   = fmt(total);
+    statAvg.textContent     = fmt(avg);
+    statCats.textContent    = cats;
   }
 
   // ─────────────────────────────────────────────
-  //  RENDER EXPENSES
+  //  Render expense list
   // ─────────────────────────────────────────────
   function renderExpenses(list) {
     entryCount.textContent = `${list.length} entr${list.length === 1 ? 'y' : 'ies'}`;
@@ -1001,9 +684,9 @@
     }
 
     expenseList.innerHTML = list.map(e => {
-      const id = e.id ?? e._id ?? e.expense_id ?? '';
+      const id   = e.id ?? e._id ?? e.expense_id ?? '';
       const desc = e.description || e.name || e.title || '—';
-      const cat = e.category || 'Other';
+      const cat  = e.category || 'Other';
       const date = e.date
         ? new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : '';
@@ -1025,39 +708,37 @@
         </div>`;
     }).join('');
 
+    // Event delegation — attach after render (mirrors RAG listener pattern)
     expenseList.querySelectorAll('.btn-delete').forEach(btn => {
       btn.addEventListener('click', () => deleteExpense(btn.dataset.id));
     });
   }
 
   // ─────────────────────────────────────────────
-  //  FILTER
+  //  Filter / search
   // ─────────────────────────────────────────────
   function buildFilterOptions(expenses) {
     const cats = [...new Set(expenses.map(e => e.category || 'Other'))].sort();
-    filterCat.innerHTML = `<option value="">All categories</option>`
+    filterCat.innerHTML  = `<option value="">All categories</option>`
       + cats.map(c => `<option>${escapeHtml(c)}</option>`).join('');
     catSuggest.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">`).join('');
   }
 
   function filterExpenses() {
-    const q = searchInput.value.toLowerCase();
+    const q   = searchInput.value.toLowerCase();
     const cat = filterCat.value.toLowerCase();
     const filtered = allExpenses.filter(e => {
       const matchQ = !q
         || (e.description || '').toLowerCase().includes(q)
-        || (e.category || '').toLowerCase().includes(q);
+        || (e.category    || '').toLowerCase().includes(q);
       const matchC = !cat || (e.category || '').toLowerCase() === cat;
       return matchQ && matchC;
     });
     renderExpenses(filtered);
   }
 
-  searchInput.addEventListener('input', filterExpenses);
-  filterCat.addEventListener('change', filterExpenses);
-
   // ─────────────────────────────────────────────
-  //  CHART
+  //  Category bar chart
   // ─────────────────────────────────────────────
   function renderChart(expenses) {
     if (!expenses.length) { chartCard.style.display = 'none'; return; }
@@ -1068,8 +749,8 @@
       totals[c] = (totals[c] || 0) + Number(e.amount || 0);
     });
 
-    const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
-    const max = sorted[0][1];
+    const sorted  = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+    const max     = sorted[0][1];
     const overall = sorted.reduce((s, [, v]) => s + v, 0);
 
     chartBars.innerHTML = sorted.map(([cat, val]) => `
@@ -1085,27 +766,21 @@
   }
 
   // ─────────────────────────────────────────────
-  //  ADD EXPENSE
+  //  Add expense  (mirrors RAG upload flow)
   // ─────────────────────────────────────────────
-  fDate.valueAsDate = new Date();
-
-  fAmount.addEventListener('input', () => {
-    addBtn.disabled = fAmount.value.trim() === '' || isLoading;
-  });
-
-  addBtn.addEventListener('click', async () => {
+  async function addExpense() {
     if (isLoading) return;
 
-    const amount = parseFloat(fAmount.value);
-    const category = fCategory.value.trim();
-    const date = fDate.value;
+    const amount      = parseFloat(fAmount.value);
+    const category    = fCategory.value.trim();
+    const date        = fDate.value;
     const description = fDesc.value.trim();
 
     if (!amount || amount <= 0) { showToast('Enter a valid amount', 'error'); return; }
-    if (!category) { showToast('Enter a category', 'error'); return; }
+    if (!category)              { showToast('Enter a category', 'error');     return; }
 
-    isLoading = true;
-    addBtn.disabled = true;
+    isLoading        = true;
+    addBtn.disabled  = true;
     addBtn.innerHTML = '<span class="spinner"></span>';
     setStatus('loading', '⏳ Saving…');
 
@@ -1116,29 +791,32 @@
       });
 
       showToast('Expense added ✓', 'success');
-      fAmount.value = '';
-      fCategory.value = '';
-      fDate.valueAsDate = new Date();
-      fDesc.value = '';
 
-      await loadAll();
+      // Reset form
+      fAmount.value     = '';
+      fCategory.value   = '';
+      fDate.valueAsDate = new Date();
+      fDesc.value       = '';
+
+      await loadAll();   // refresh list + stats
 
     } catch (e) {
       showToast('Failed to add: ' + e.message, 'error');
       setStatus('err', '● Error');
     } finally {
-      isLoading = false;
-      addBtn.disabled = false;
+      isLoading          = false;
+      addBtn.disabled    = false;
       addBtn.textContent = 'Add Expense';
     }
-  });
+  }
 
   // ─────────────────────────────────────────────
-  //  DELETE EXPENSE
+  //  Delete expense  (mirrors RAG error handling)
   // ─────────────────────────────────────────────
   async function deleteExpense(id) {
     if (!id || isLoading) return;
 
+    // Visual feedback: fade the row out immediately
     const row = expenseList.querySelector(`[data-id="${id}"]`);
     if (row) row.classList.add('deleting');
 
@@ -1155,16 +833,9 @@
   }
 
   // ─────────────────────────────────────────────
-  //  BOOT: CHECK AUTH STATUS
+  //  Boot
   // ─────────────────────────────────────────────
-  if (isAuthenticated()) {
-    const username = localStorage.getItem('expense_username');
-    document.getElementById('username-display').textContent = `👤 ${username}`;
-    showPage('page-dashboard');
-    loadAll();
-  } else {
-    showPage('page-login');
-  }
+  loadAll();
 </script>
 </body>
 </html>
