@@ -1,13 +1,18 @@
 #--------------------------------------------------UNDER DEVELOPMENT-------------------------------------------------
-from fastapi import FastAPI , HTTPException
+from fastapi import FastAPI , HTTPException , Header
+from typing import Optional
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import tempfile, os, uuid, logging
 from passlib.context import CryptContext
+import sqlite3 
+from datetime import datetime, timedelta
+
+connections = sqlite3.connect('expense_tracking_database')
 
 app = FastAPI()
 #DUMMY CODE TO BE REFINED
-password = [] # DUMMY... SECURE DATABASE TO BE ADDED 
+users_db = {} # DUMMY... SECURE DATABASE TO BE ADDED... stores users with their passwords
 sessions: dict = {}
 active_sessions = {}
 
@@ -25,7 +30,7 @@ class Login(BaseModel):
     user_name: str
     password:str
 
-class Expense(BaseModel):
+class UserExpense(BaseModel):
     amount: float
     category: str
     date: str
@@ -38,57 +43,73 @@ class Signup(BaseModel):
 
 
 hasher = CryptContext(schemes=["bcrypt"])
+#----------------VERIFYING THE USER------------------
 
 @app.post("/signup")
 def adding(add: Signup):
     username = add.username
     user_pass = add.password
+    if username in users_db:
+        raise HTTPException(status_code=400, detail="Username already exists")
     hashed_pass = hasher.hash(user_pass)
-    password.append(hashed_pass)
-
-@app.post("/login")
-def hash_password(login: Login):
-    user_pass = Login.password
-    hashed_pass = hasher.hash(user_pass)
-    return {"sucessfully hashed: ":hashed_pass}
+    users_db[username] = {"password": hashed_pass, "expenses":{},"expense_id":1 }
+    return {"message": "Successfully created your account"}
 
 @app.post("/verify_login")
 def verify(login: Login):
     to_confirm = login.password
-    verify = hasher.verify(to_confirm,password[-1])
+    username = login.user_name
+
+    if username not in users_db:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    verify = hasher.verify(to_confirm,users_db[username])
+    
     if verify:
         token = str(uuid.uuid4())
-        active_sessions[token] = login.user_name
+        active_sessions[token] = {"username": login.user_name, "expires_at":datetime.now() + timedelta(hours=24)}
         return {"token":token,"message":"Sucessfully login"}
     else:
-        raise HTTPException(status_code=401, detail="Incorrect password")
+        raise HTTPException(status_code=401, detail="Invalid username or password")
     
 #-------------------------------------------------UNDER DEVELOPMENT
 
-"""
-@app.post("/add_expense")
-async def add_expense(expense: Expense):
-    expenses = {}
-    session_id = str(uuid.uuid4())
-    expense_id_counter = 1
+
+@app.post("/expenses")
+async def add_expense(expense: UserExpense, authorization: Optional[str] = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+    
+    token_parts = authorization.split()
+    if len(token_parts) != 2 or token_parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid authorization format")
+    
+    token = token_parts[1]
+    if token not in active_sessions:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    username = active_sessions[token]
+    user_data = users_db[username]
+    current_id = user_data["expense_id"]
+    user_data["expense_id"] += 1
+
 
     amount = expense.amount
     category = expense.category
     date = expense.date
     description = expense.description
 
-    expenses[expense_id_counter] = {
+    user_data["expenses"][current_id] = {
+        "id": current_id,
         "amount": amount,
         "category": category,
         "date": date,
         "description": description
     }
 
-    print(f"\nExpense added with ID {expense_id_counter}\n")
-    expense_id_counter += 1
-    sessions[session_id] = {"expense_id":expense_id_counter,"expenses":expenses}
+    return {"message":"Expense added successfully", "expense": user_data["expenses"][current_id]}
 
-
+"""
 def view_all_expenses():
     if not expenses:
         print("\nNo expenses found.\n")
