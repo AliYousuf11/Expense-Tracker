@@ -627,8 +627,6 @@
         apiFetch('/expenses/stats').catch(() => null),
       ]);
 
-      setStatus('ok', '● Connected');
-
       allExpenses = Array.isArray(expenses)
         ? expenses
         : (expenses.expenses || expenses.data || []);
@@ -782,7 +780,6 @@
     isLoading        = true;
     addBtn.disabled  = true;
     addBtn.innerHTML = '<span class="spinner"></span>';
-    setStatus('loading', '⏳ Saving…');
 
     try {
       await apiFetch('/expenses', {
@@ -802,7 +799,6 @@
 
     } catch (e) {
       showToast('Failed to add: ' + e.message, 'error');
-      setStatus('err', '● Error');
     } finally {
       isLoading          = false;
       addBtn.disabled    = false;
@@ -820,7 +816,6 @@
     const row = expenseList.querySelector(`[data-id="${id}"]`);
     if (row) row.classList.add('deleting');
 
-    setStatus('loading', '⏳ Deleting…');
     try {
       await apiFetch(`/expenses/${id}`, { method: 'DELETE' });
       showToast('Expense deleted', 'success');
@@ -828,7 +823,6 @@
     } catch (e) {
       if (row) row.classList.remove('deleting');
       showToast('Delete failed: ' + e.message, 'error');
-      setStatus('err', '● Error');
     }
   }
 
