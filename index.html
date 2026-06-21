@@ -133,42 +133,6 @@
     .page { display: none; }
     .page.active { display: block; }
 
-    /* ── Config banner ── */
-    #config-bar {
-      background: #141400;
-      border-bottom: 1px solid #2e2a00;
-      padding: 9px 24px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: .8rem;
-      color: #b8980a;
-      flex-wrap: wrap;
-    }
-    #config-bar input {
-      flex: 0 0 220px;
-      background: #0d0d0d;
-      border: 1px solid #2e2a00;
-      border-radius: 6px;
-      color: #f0f0f0;
-      padding: 6px 10px;
-      font-size: .8rem;
-      outline: none;
-    }
-    #config-bar input:focus { border-color: var(--accent); }
-    #config-bar button {
-      padding: 6px 14px;
-      background: #b8980a;
-      color: #0d0d0d;
-      border: none;
-      border-radius: 6px;
-      font-weight: 700;
-      font-size: .78rem;
-      cursor: pointer;
-      letter-spacing: .04em;
-    }
-    #api-status { font-size: .75rem; }
-
     /* ── Top bar ── */
     header {
       display: flex;
@@ -575,13 +539,6 @@
 
 <!-- ── PAGE: DASHBOARD ── -->
 <div id="page-dashboard" class="page">
-  <!-- Config bar -->
-  <div id="config-bar">
-    <span>⚙ API Base URL</span>
-    <input type="text" id="api-url-input" placeholder="https://your-backend.onrender.com" />
-    <button id="save-url-btn">Connect</button>
-    <span id="api-status"></span>
-  </div>
 
   <!-- Header -->
   <header>
@@ -594,7 +551,7 @@
       <div class="amount" id="header-total">$0.00</div>
     </div>
     <div class="user-info">
-      <span class="username-display" id="username-display"></span>
+      <span class="username-display" id="username-display"></span>  
       <button class="logout-btn" id="logout-btn">Logout</button>
     </div>
   </header>
@@ -723,7 +680,7 @@
   // ─────────────────────────────────────────────
   //  API URL MANAGEMENT
   // ─────────────────────────────────────────────
-  let API_BASE = localStorage.getItem('expense_api_url') || 'http://localhost:8000';
+  const API_BASE = 'http://localhost:8000';
 
   // ─────────────────────────────────────────────
   //  TOAST
@@ -864,23 +821,6 @@
   });
 
   // ─────────────────────────────────────────────
-  //  CONFIG BAR
-  // ─────────────────────────────────────────────
-  const apiUrlInput = document.getElementById('api-url-input');
-  apiUrlInput.value = API_BASE;
-
-  document.getElementById('save-url-btn').addEventListener('click', () => {
-    API_BASE = apiUrlInput.value.trim().replace(/\/$/, '');
-    localStorage.setItem('expense_api_url', API_BASE);
-    showToast('API URL saved', 'success');
-    if (isAuthenticated()) loadAll();
-  });
-
-  apiUrlInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('save-url-btn').click();
-  });
-
-  // ─────────────────────────────────────────────
   //  DASHBOARD ELEMENTS
   // ─────────────────────────────────────────────
   const headerTotal = document.getElementById('header-total');
@@ -900,7 +840,6 @@
   const fCategory = document.getElementById('f-category');
   const fDate = document.getElementById('f-date');
   const fDesc = document.getElementById('f-desc');
-  const apiStatusEl = document.getElementById('api-status');
 
   let allExpenses = [];
   let isLoading = false;
@@ -916,31 +855,17 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  function setStatus(type, msg) {
-    const colours = {
-      idle:    '',
-      loading: 'var(--muted)',
-      ok:      'var(--accent-dim)',
-      err:     'var(--danger)',
-    };
-    apiStatusEl.textContent = msg;
-    apiStatusEl.style.color = colours[type] || '';
-  }
-
   // ─────────────────────────────────────────────
   //  LOAD DATA
   // ─────────────────────────────────────────────
   async function loadAll() {
     if (!isAuthenticated()) return;
 
-    setStatus('loading', '⏳ Loading…');
     try {
       const [expenses, stats] = await Promise.all([
         apiFetch('/expenses'),
         apiFetch('/expenses/stats').catch(() => null),
       ]);
-
-      setStatus('ok', '● Connected');
 
       allExpenses = Array.isArray(expenses)
         ? expenses
@@ -956,8 +881,7 @@
         // Already handled by apiFetch
         return;
       }
-      setStatus('err', '● Unreachable');
-      showToast('Cannot reach API — check the URL above', 'error');
+      showToast('Cannot reach API', 'error');
     }
   }
 
@@ -1107,7 +1031,6 @@
     isLoading = true;
     addBtn.disabled = true;
     addBtn.innerHTML = '<span class="spinner"></span>';
-    setStatus('loading', '⏳ Saving…');
 
     try {
       await apiFetch('/expenses', {
@@ -1125,7 +1048,6 @@
 
     } catch (e) {
       showToast('Failed to add: ' + e.message, 'error');
-      setStatus('err', '● Error');
     } finally {
       isLoading = false;
       addBtn.disabled = false;
@@ -1142,7 +1064,6 @@
     const row = expenseList.querySelector(`[data-id="${id}"]`);
     if (row) row.classList.add('deleting');
 
-    setStatus('loading', '⏳ Deleting…');
     try {
       await apiFetch(`/expenses/${id}`, { method: 'DELETE' });
       showToast('Expense deleted', 'success');
@@ -1150,7 +1071,6 @@
     } catch (e) {
       if (row) row.classList.remove('deleting');
       showToast('Delete failed: ' + e.message, 'error');
-      setStatus('err', '● Error');
     }
   }
 
