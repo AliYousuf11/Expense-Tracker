@@ -139,6 +139,8 @@ async def add_expense(expense: UserExpense, authorization: Optional[str] = Heade
         expense_to_work = expenses
     else:
         expense_to_work = {"expenses":{}}
+    if "expenses" not in expense_to_work:
+        expense_to_work["expenses"] = {}
 
     amount = expense.amount
     category = expense.category
