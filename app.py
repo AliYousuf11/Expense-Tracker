@@ -1,4 +1,4 @@
-#--------------------------------------------------UNDER DEVELOPMENT-------------------------------------------------
+
 from fastapi import FastAPI , HTTPException , Header
 from typing import Optional
 from pydantic import BaseModel
@@ -28,8 +28,8 @@ users(username text PRIMARY KEY,password TEXT,expenses JSON,expense_id INTEGER)
 cursor.execute(create_table)
 
 app = FastAPI()
-#DUMMY CODE TO BE REFINED
-users_db = {} # DUMMY... SECURE DATABASE TO BE ADDED... stores users with their passwords
+
+
 sessions: dict = {}
 active_sessions = {}
 
@@ -75,7 +75,7 @@ def adding(add: Signup):
         hashed_pass = hasher.hash(user_pass)
         cursor.execute("INSERT INTO users (username,password,expenses,expense_id) VALUES (?,?,?,?)",(username,hashed_pass,{},1))
         connections.commit()
-        #users_db[username] = {"password": hashed_pass, "expenses":{},"expense_id":1 }
+        
         return {"message": "Successfully created your account"}
 
 @app.post("/verify_login")
@@ -102,7 +102,7 @@ def verify(login: Login):
     else:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
-#-------------------------------------------------UNDER DEVELOPMENT
+
 
 
 @app.post("/expenses")
@@ -127,7 +127,7 @@ async def add_expense(expense: UserExpense, authorization: Optional[str] = Heade
     cursor.execute("select expenses from users where username = ?",(username,))
     expenses_ = cursor.fetchone()
     expenses = expenses_[0]
-    #user_data = users_db[username]
+   
     cursor.execute("select expense_id from users where username = ?",(username,))
     current_id = cursor.fetchone()[0]
 
@@ -140,6 +140,9 @@ async def add_expense(expense: UserExpense, authorization: Optional[str] = Heade
     else:
         expense_to_work = {"expenses":{}}
 
+    if "expenses" not in expense_to_work:
+        expense_to_work["expenses"] = {}
+        
     amount = expense.amount
     category = expense.category
     date = expense.date
@@ -223,19 +226,14 @@ async def delete_exp(expense_id: int, authorization: Optional[str] = Header(None
     session_data = active_sessions[token]
     username = session_data["username"]
 
-    cursor.execute("select expense_id from users where username = ?",(username,))
-    expense_id_ = cursor.fetchone()
-    expense_ids = expense_id_[0]
-    expense_id = str(expense_ids)
-
     cursor.execute("select expenses from users where username = ?",(username,))
     expenses_ = cursor.fetchone()
     expenses = expenses_[0]
 
-    if expense_id not in expenses.get("expenses",{}) :   
+    if str(expense_id) not in expenses.get("expenses",{}) :   
         raise HTTPException(status_code=404, detail="Expense not found")
     
-    del expenses["expenses"][expense_id]                 
+    del expenses["expenses"][str(expense_id)]                 
     cursor.execute("UPDATE users SET expenses = ? WHERE username = ?", (expenses, username))  
     connections.commit()                                   
     return {"message":"expense deleted successfully"}
