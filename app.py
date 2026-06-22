@@ -7,14 +7,32 @@ import tempfile, os, uuid, logging
 from passlib.context import CryptContext
 import sqlite3 
 from datetime import datetime, timedelta
+import json
 
-#connections = sqlite3.connect('expense_tracking_database')
+def adapter(dict_obj):
+    return json.dumps(dict_obj)
+
+def converter(dict_obj2):
+    return json.loads(dict_obj2)
+
+sqlite3.register_adapter(dict,adapter)
+sqlite3.register_converter("json",converter)
+
+connections = sqlite3.connect('expense_tracking_database',detect_types=sqlite3.PARSE_DECLTYPES,check_same_thread=False)
+cursor = connections.cursor()
+
+create_table = """CREATE TABLE IF NOT EXISTS
+users(username text PRIMARY KEY,password TEXT,expenses JSON,expense_id INTEGER)
+"""
+
+cursor.execute(create_table)
 
 app = FastAPI()
 #DUMMY CODE TO BE REFINED
 users_db = {} # DUMMY... SECURE DATABASE TO BE ADDED... stores users with their passwords
 sessions: dict = {}
 active_sessions = {}
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,21 +67,33 @@ hasher = CryptContext(schemes=["bcrypt"])
 def adding(add: Signup):
     username = add.username
     user_pass = add.password
-    if username in users_db:
+    cursor.execute("SELECT username FROM users WHERE username = ?",(username,))
+    result = cursor.fetchone()
+    if result:
         raise HTTPException(status_code=400, detail="Username already exists")
-    hashed_pass = hasher.hash(user_pass)
-    users_db[username] = {"password": hashed_pass, "expenses":{},"expense_id":1 }
-    return {"message": "Successfully created your account"}
+    else:
+        hashed_pass = hasher.hash(user_pass)
+        cursor.execute("INSERT INTO users (username,password,expenses,expense_id) VALUES (?,?,?,?)",(username,hashed_pass,{},1))
+        connections.commit()
+        #users_db[username] = {"password": hashed_pass, "expenses":{},"expense_id":1 }
+        return {"message": "Successfully created your account"}
 
 @app.post("/verify_login")
 def verify(login: Login):
     to_confirm = login.password
     username = login.user_name
+    cursor.execute("SELECT username FROM users WHERE username = ?",(username,))
+    result_ = cursor.fetchone()
+    result = result_
 
-    if username not in users_db:
+    if not result:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
-    verify = hasher.verify(to_confirm,users_db[username]["password"])
+    cursor.execute("select password from users where username = ?",(username,))
+    password_= cursor.fetchone()
+    password = password_[0]
+
+    verify = hasher.verify(to_confirm,password)
     
     if verify:
         token = str(uuid.uuid4())
@@ -94,24 +124,39 @@ async def add_expense(expense: UserExpense, authorization: Optional[str] = Heade
         raise HTTPException(status_code=401, detail="Token has expired")
     
     username = session_data["username"]
-    user_data = users_db[username]
-    current_id = user_data["expense_id"]
-    user_data["expense_id"] += 1
+    cursor.execute("select expenses from users where username = ?",(username,))
+    expenses_ = cursor.fetchone()
+    expenses = expenses_[0]
+    #user_data = users_db[username]
+    cursor.execute("select expense_id from users where username = ?",(username,))
+    current_id = cursor.fetchone()[0]
 
+    next_id = current_id + 1
+    cursor.execute("update users set expense_id = ? where username = ?",(next_id,username))
+    connections.commit()
+
+    if expenses is not None:
+        expense_to_work = expenses
+    else:
+        expense_to_work = {"expenses":{}}
 
     amount = expense.amount
     category = expense.category
     date = expense.date
     description = expense.description
 
-    user_data["expenses"][current_id] = {
+    expense_to_work["expenses"][str(current_id)] = {
         "id": current_id,
         "amount": amount,
         "category": category,
         "date": date,
         "description": description
     }
-    return {"message":"Expense added successfully", "expense": user_data["expenses"][current_id]}
+
+    cursor.execute("update users set expenses = ? where username = ?",(expense_to_work,username))
+    connections.commit()
+
+    return {"message":"Expense added successfully", "expense": expense_to_work["expenses"][str(current_id)]}
     
 
 @app.get("/expenses")
@@ -128,11 +173,13 @@ async def return_expense(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     session_data = active_sessions[token]
     username = session_data["username"]
-    user_data = users_db[username]
-    expenses = user_data["expenses"]
-    if not expenses:
+    cursor.execute("select expenses from users where username = ?",(username,))
+    expenses =  cursor.fetchone()[0]
+    inner_expenses = expenses.get("expenses", {})
+
+    if not inner_expenses:
         return []
-    expense_list = list(expenses.values())
+    expense_list = list(inner_expenses.values())
     return {"expenses":expense_list}
 
 @app.get("/expenses/stats")
@@ -149,160 +196,51 @@ async def stats(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     session_data = active_sessions[token]
     username = session_data["username"]
-    user_data = users_db[username]
-    expenses = user_data["expenses"]
-    if not expenses:
+    cursor.execute("select expenses from users where username = ?",(username,))
+    expenses = cursor.fetchone()[0]
+    inner_expenses = expenses.get("expenses", {})
+
+    if not inner_expenses:
         return {"total_spent": 0, "average": 0, "category_count": 0}
-    total_exp = sum(exp["amount"] for exp in expenses.values())
-    total_cat = len(expenses)
+    total_exp = sum(exp["amount"] for exp in inner_expenses.values())
+    total_cat = len(inner_expenses)
     avg_exp = total_exp / total_cat
     
     return {"total_spent": total_exp, "average": avg_exp, "category_count": total_cat}
 
-        
+@app.delete("/expenses/{expense_id}")
+async def delete_exp(expense_id: int, authorization: Optional[str] = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+    
+    token_parts = authorization.split()
+    if len(token_parts) != 2 or token_parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid authorization format")
+    
+    token = token_parts[1]
+    if token not in active_sessions:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    session_data = active_sessions[token]
+    username = session_data["username"]
 
+    cursor.execute("select expense_id from users where username = ?",(username,))
+    expense_id_ = cursor.fetchone()
+    expense_ids = expense_id_[0]
+    expense_id = str(expense_ids)
 
+    cursor.execute("select expenses from users where username = ?",(username,))
+    expenses_ = cursor.fetchone()
+    expenses = expenses_[0]
 
+    if expense_id not in expenses.get("expenses",{}) :   
+        raise HTTPException(status_code=404, detail="Expense not found")
+    
+    del expenses["expenses"][expense_id]                 
+    cursor.execute("UPDATE users SET expenses = ? WHERE username = ?", (expenses, username))  
+    connections.commit()                                   
+    return {"message":"expense deleted successfully"}
 
-"""
-def view_all_expenses():
-    if not expenses:
-        print("\nNo expenses found.\n")
-        return
-
-    print("\n===== ALL EXPENSES =====")
-
-    for expense_id, expense in expenses.items():
-        print(f"\nID: {expense_id}")
-        print(f"Amount: {expense['amount']}")
-        print(f"Category: {expense['category']}")
-        print(f"Date: {expense['date']}")
-        print(f"Description: {expense['description']}")    
-
-
-def edit_expense():
-    if not expenses:
-        print("\nNo expenses available.\n")
-        return
-
-    expense_id = int(input("Enter Expense ID to edit: "))
-
-    if expense_id not in expenses:
-        print("Expense not found.")
-        return
-
-    expense = expenses[expense_id]
-
-    print("\nLeave blank to keep current value.\n")
-
-    amount = input(f"Amount ({expense['amount']}): ")
-    category = input(f"Category ({expense['category']}): ")
-    date = input(f"Date ({expense['date']}): ")
-    description = input(f"Description ({expense['description']}): ")
-
-    if amount:
-        expense["amount"] = float(amount)
-
-    if category:
-        expense["category"] = category
-
-    if date:
-        expense["date"] = date
-
-    if description:
-        expense["description"] = description
-
-    print("\nExpense updated successfully.\n")
-
-
-def delete_expense():
-    if not expenses:
-        print("\nNo expenses available.\n")
-        return
-
-    expense_id = int(input("Enter Expense ID to delete: "))
-
-    if expense_id not in expenses:
-        print("Expense not found.")
-        return
-
-    confirm = input("Are you sure? (Y/N): ").upper()
-
-    if confirm == "Y":
-        del expenses[expense_id]
-        print("Expense deleted successfully.")
-    else:
-        print("Deletion cancelled.")
-
-
-def view_stats():
-    if not expenses:
-        print("\nNo expenses available.\n")
-        return
-
-    total_spent = 0
-    category_totals = {}
-
-    for expense in expenses.values():
-        amount = expense["amount"]
-        category = expense["category"]
-
-        total_spent += amount
-
-        if category not in category_totals:
-            category_totals[category] = 0
-
-        category_totals[category] += amount
-
-    print("\n===== STATISTICS =====")
-    print(f"Total Expenses: {len(expenses)}")
-    print(f"Total Amount Spent: {total_spent}")
-
-    print("\nCategory Breakdown:")
-
-    for category, amount in category_totals.items():
-        print(f"{category}: {amount}")
-
-
-def main_menu():
-    while True:
-        print("\n===== EXPENSE TRACKER =====")
-        print("1. Add Expense")
-        print("2. Edit Expense")
-        print("3. Delete Expense")
-        print("4. View All Expenses")
-        print("5. Statistics")
-        print("6. Exit")
-
-        choice = input("\nChoose an option: ")
-
-        if choice == "1":
-            add_expense()
-
-        elif choice == "2":
-            edit_expense()
-
-        elif choice == "3":
-            delete_expense()
-
-        elif choice == "4":
-            view_all_expenses()
-
-        elif choice == "5":
-            view_stats()
-
-        elif choice == "6":
-            print("Goodbye!")
-            break
-
-        else:
-            print("Invalid choice. Try again.")
-
-
-main_menu()
-"""
-
-
+    
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
