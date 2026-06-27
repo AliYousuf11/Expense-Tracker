@@ -8,6 +8,10 @@ from passlib.context import CryptContext
 import sqlite3 
 from datetime import datetime, timedelta
 import json
+import asyncio
+from contextlib import asynccontextmanager
+
+active_sessions = {}
 
 def adapter(dict_obj):
     return json.dumps(dict_obj)
@@ -31,7 +35,7 @@ app = FastAPI()
 
 
 sessions: dict = {}
-active_sessions = {}
+
 
 
 logging.basicConfig(level=logging.INFO)
@@ -61,6 +65,13 @@ class Signup(BaseModel):
 
 
 hasher = CryptContext(schemes=["bcrypt"])
+
+
+
+
+
+
+
 #----------------VERIFYING THE USER------------------
 
 @app.post("/signup")
@@ -84,13 +95,17 @@ def verify(login: Login):
     username = login.user_name
     cursor.execute("SELECT username FROM users WHERE username = ?",(username,))
     result_ = cursor.fetchone()
-    result = result_
+    if not result_:
+        raise HTTPException(status_code=404, detail="User not found")
+    result = result_[0]
 
     if not result:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
     cursor.execute("select password from users where username = ?",(username,))
     password_= cursor.fetchone()
+    if not password_:
+        raise HTTPException(status_code=404, detail="User not found")
     password = password_[0]
 
     verify = hasher.verify(to_confirm,password)
@@ -126,10 +141,16 @@ async def add_expense(expense: UserExpense, authorization: Optional[str] = Heade
     username = session_data["username"]
     cursor.execute("select expenses from users where username = ?",(username,))
     expenses_ = cursor.fetchone()
+    if not expenses_:
+        raise HTTPException(status_code=404, detail="User not found")
     expenses = expenses_[0]
    
     cursor.execute("select expense_id from users where username = ?",(username,))
-    current_id = cursor.fetchone()[0]
+    current_id_ = cursor.fetchone()
+    if not current_id_:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    current_id = current_id_[0]
 
     next_id = current_id + 1
     cursor.execute("update users set expense_id = ? where username = ?",(next_id,username))
@@ -179,11 +200,15 @@ async def return_expense(authorization: Optional[str] = Header(None)):
     session_data = active_sessions[token]
     username = session_data["username"]
     cursor.execute("select expenses from users where username = ?",(username,))
-    expenses =  cursor.fetchone()[0]
+    expenses_ =  cursor.fetchone()
+    if not expenses_:
+        raise HTTPException(status_code=404, detail="User not found")
+    expenses = expenses_[0]
+
     inner_expenses = expenses.get("expenses", {})
 
     if not inner_expenses:
-        return []
+        return {"expenses":[]}
     expense_list = list(inner_expenses.values())
     return {"expenses":expense_list}
 
@@ -202,7 +227,11 @@ async def stats(authorization: Optional[str] = Header(None)):
     session_data = active_sessions[token]
     username = session_data["username"]
     cursor.execute("select expenses from users where username = ?",(username,))
-    expenses = cursor.fetchone()[0]
+    expenses_ = cursor.fetchone()
+    if not expenses_:
+        raise HTTPException(status_code=404, detail="User not found")
+    expenses = expenses_[0]
+
     inner_expenses = expenses.get("expenses", {})
 
     if not inner_expenses:
@@ -230,6 +259,8 @@ async def delete_exp(expense_id: int, authorization: Optional[str] = Header(None
 
     cursor.execute("select expenses from users where username = ?",(username,))
     expenses_ = cursor.fetchone()
+    if not expenses_:
+        raise HTTPException(status_code=404, detail="User not found")
     expenses = expenses_[0]
 
     if str(expense_id) not in expenses.get("expenses",{}) :   
