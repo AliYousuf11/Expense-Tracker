@@ -1,4 +1,4 @@
-#--------------------------------------------------UNDER DEVELOPMENT-------------------------------------------------
+
 from fastapi import FastAPI , HTTPException , Header
 from typing import Optional
 from pydantic import BaseModel
@@ -8,6 +8,10 @@ from passlib.context import CryptContext
 import sqlite3 
 from datetime import datetime, timedelta
 import json
+import asyncio
+from contextlib import asynccontextmanager
+
+active_sessions = {}
 
 def adapter(dict_obj):
     return json.dumps(dict_obj)
@@ -27,11 +31,27 @@ users(username text PRIMARY KEY,password TEXT,expenses JSON,expense_id INTEGER)
 
 cursor.execute(create_table)
 
-app = FastAPI()
-#DUMMY CODE TO BE REFINED
-users_db = {} # DUMMY... SECURE DATABASE TO BE ADDED... stores users with their passwords
+async def clean_sessions(session_dict):
+    while True:
+        await asyncio.sleep(3600)
+        for token in list(session_dict.keys()):
+            time_created = session_dict[token]["expires_at"]
+            now = datetime.now()
+            if time_created < now:
+                del session_dict[token]
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(clean_sessions(active_sessions))
+    yield
+
+    task.cancel()
+
+app = FastAPI(lifespan= lifespan)
+
+
 sessions: dict = {}
-active_sessions = {}
+
 
 
 logging.basicConfig(level=logging.INFO)
@@ -61,6 +81,13 @@ class Signup(BaseModel):
 
 
 hasher = CryptContext(schemes=["bcrypt"])
+
+
+
+
+
+
+
 #----------------VERIFYING THE USER------------------
 
 @app.post("/signup")
@@ -75,7 +102,7 @@ def adding(add: Signup):
         hashed_pass = hasher.hash(user_pass)
         cursor.execute("INSERT INTO users (username,password,expenses,expense_id) VALUES (?,?,?,?)",(username,hashed_pass,{},1))
         connections.commit()
-        #users_db[username] = {"password": hashed_pass, "expenses":{},"expense_id":1 }
+
         return {"message": "Successfully created your account"}
 
 @app.post("/verify_login")
@@ -84,13 +111,17 @@ def verify(login: Login):
     username = login.user_name
     cursor.execute("SELECT username FROM users WHERE username = ?",(username,))
     result_ = cursor.fetchone()
-    result = result_
+    if not result_:
+        raise HTTPException(status_code=404, detail="User not found")
+    result = result_[0]
 
     if not result:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
     cursor.execute("select password from users where username = ?",(username,))
     password_= cursor.fetchone()
+    if not password_:
+        raise HTTPException(status_code=404, detail="User not found")
     password = password_[0]
 
     verify = hasher.verify(to_confirm,password)
@@ -126,10 +157,16 @@ async def add_expense(expense: UserExpense, authorization: Optional[str] = Heade
     username = session_data["username"]
     cursor.execute("select expenses from users where username = ?",(username,))
     expenses_ = cursor.fetchone()
+    if not expenses_:
+        raise HTTPException(status_code=404, detail="User not found")
     expenses = expenses_[0]
-    #user_data = users_db[username]
+
     cursor.execute("select expense_id from users where username = ?",(username,))
-    current_id = cursor.fetchone()[0]
+    current_id_ = cursor.fetchone()
+    if not current_id_:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    current_id = current_id_[0]
 
     next_id = current_id + 1
     cursor.execute("update users set expense_id = ? where username = ?",(next_id,username))
@@ -140,6 +177,9 @@ async def add_expense(expense: UserExpense, authorization: Optional[str] = Heade
     else:
         expense_to_work = {"expenses":{}}
 
+    if "expenses" not in expense_to_work:
+        expense_to_work["expenses"] = {}
+        
     amount = expense.amount
     category = expense.category
     date = expense.date
@@ -174,11 +214,15 @@ async def return_expense(authorization: Optional[str] = Header(None)):
     session_data = active_sessions[token]
     username = session_data["username"]
     cursor.execute("select expenses from users where username = ?",(username,))
-    expenses =  cursor.fetchone()[0]
+    expenses_ =  cursor.fetchone()
+    if not expenses_:
+        raise HTTPException(status_code=404, detail="User not found")
+    expenses = expenses_[0]
+
     inner_expenses = expenses.get("expenses", {})
 
     if not inner_expenses:
-        return []
+        return {"expenses":[]}
     expense_list = list(inner_expenses.values())
     return {"expenses":expense_list}
 
@@ -197,7 +241,11 @@ async def stats(authorization: Optional[str] = Header(None)):
     session_data = active_sessions[token]
     username = session_data["username"]
     cursor.execute("select expenses from users where username = ?",(username,))
-    expenses = cursor.fetchone()[0]
+    expenses_ = cursor.fetchone()
+    if not expenses_:
+        raise HTTPException(status_code=404, detail="User not found")
+    expenses = expenses_[0]
+
     inner_expenses = expenses.get("expenses", {})
 
     if not inner_expenses:
@@ -223,19 +271,16 @@ async def delete_exp(expense_id: int, authorization: Optional[str] = Header(None
     session_data = active_sessions[token]
     username = session_data["username"]
 
-    cursor.execute("select expense_id from users where username = ?",(username,))
-    expense_id_ = cursor.fetchone()
-    expense_ids = expense_id_[0]
-    expense_id = str(expense_ids)
-
     cursor.execute("select expenses from users where username = ?",(username,))
     expenses_ = cursor.fetchone()
+    if not expenses_:
+        raise HTTPException(status_code=404, detail="User not found")
     expenses = expenses_[0]
 
-    if expense_id not in expenses.get("expenses",{}) :   
+    if str(expense_id) not in expenses.get("expenses",{}) :   
         raise HTTPException(status_code=404, detail="Expense not found")
     
-    del expenses["expenses"][expense_id]                 
+    del expenses["expenses"][str(expense_id)]                 
     cursor.execute("UPDATE users SET expenses = ? WHERE username = ?", (expenses, username))  
     connections.commit()                                   
     return {"message":"expense deleted successfully"}
