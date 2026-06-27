@@ -31,23 +31,7 @@ users(username text PRIMARY KEY,password TEXT,expenses JSON,expense_id INTEGER)
 
 cursor.execute(create_table)
 
-async def clean_sessions(session_dict):
-    while True:
-        await asyncio.sleep(3600)
-        for token in list(session_dict.keys()):
-            time_created = session_dict[token]["expires_at"]
-            now = datetime.now()
-            if time_created < now:
-                del session_dict[token]
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    task = asyncio.create_task(clean_sessions(active_sessions))
-    yield
-
-    task.cancel()
-
-app = FastAPI(lifespan= lifespan)
+app = FastAPI()
 
 
 sessions: dict = {}
@@ -102,7 +86,7 @@ def adding(add: Signup):
         hashed_pass = hasher.hash(user_pass)
         cursor.execute("INSERT INTO users (username,password,expenses,expense_id) VALUES (?,?,?,?)",(username,hashed_pass,{},1))
         connections.commit()
-
+        
         return {"message": "Successfully created your account"}
 
 @app.post("/verify_login")
@@ -133,7 +117,7 @@ def verify(login: Login):
     else:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
-#-------------------------------------------------UNDER DEVELOPMENT
+
 
 
 @app.post("/expenses")
@@ -160,7 +144,7 @@ async def add_expense(expense: UserExpense, authorization: Optional[str] = Heade
     if not expenses_:
         raise HTTPException(status_code=404, detail="User not found")
     expenses = expenses_[0]
-
+   
     cursor.execute("select expense_id from users where username = ?",(username,))
     current_id_ = cursor.fetchone()
     if not current_id_:
@@ -176,6 +160,8 @@ async def add_expense(expense: UserExpense, authorization: Optional[str] = Heade
         expense_to_work = expenses
     else:
         expense_to_work = {"expenses":{}}
+    if "expenses" not in expense_to_work:
+        expense_to_work["expenses"] = {}
 
     if "expenses" not in expense_to_work:
         expense_to_work["expenses"] = {}
