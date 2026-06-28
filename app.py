@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI , HTTPException , Header
 from typing import Optional
 from pydantic import BaseModel
@@ -9,6 +10,7 @@ from datetime import datetime, timedelta
 import json
 import asyncio
 from contextlib import asynccontextmanager
+
 
 active_sessions = {}
 
@@ -47,6 +49,10 @@ async def lifespan(app: FastAPI):
     task.cancel()
 
 app = FastAPI(lifespan= lifespan)
+
+@app.get("/")
+def home():
+    return {"status": "running"}
 
 
 sessions: dict = {}
