@@ -1,69 +1,63 @@
-from fastapi import FastAPI, HTTPException, Header
+
+from fastapi import FastAPI , HTTPException , Header
 from typing import Optional
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-import uuid, logging
+import tempfile, os, uuid, logging
 from passlib.context import CryptContext
-import sqlite3
+import sqlite3 
 from datetime import datetime, timedelta
 import json
 import asyncio
 from contextlib import asynccontextmanager
 
-# ---------------- SESSION STORAGE ----------------
+
 active_sessions = {}
 
-# ---------------- SQLITE JSON SUPPORT ----------------
-def adapter(obj):
-    return json.dumps(obj)
+def adapter(dict_obj):
+    return json.dumps(dict_obj)
 
-def converter(obj):
-    return json.loads(obj)
+def converter(dict_obj2):
+    return json.loads(dict_obj2)
 
-sqlite3.register_adapter(dict, adapter)
-sqlite3.register_converter("json", converter)
+sqlite3.register_adapter(dict,adapter)
+sqlite3.register_converter("json",converter)
 
-connections = sqlite3.connect(
-    "expense_tracking_database",
-    detect_types=sqlite3.PARSE_DECLTYPES,
-    check_same_thread=False
-)
-
+connections = sqlite3.connect('expense_tracking_database',detect_types=sqlite3.PARSE_DECLTYPES,check_same_thread=False)
 cursor = connections.cursor()
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    username TEXT PRIMARY KEY,
-    password TEXT,
-    expenses JSON,
-    expense_id INTEGER
-)
-""")
+create_table = """CREATE TABLE IF NOT EXISTS
+users(username text PRIMARY KEY,password TEXT,expenses JSON,expense_id INTEGER)
+"""
 
-connections.commit()
+cursor.execute(create_table)
 
-# ---------------- SESSION CLEANER ----------------
-async def clean_sessions():
+async def clean_sessions(session_dict):
     while True:
         await asyncio.sleep(3600)
-        for token in list(active_sessions.keys()):
-            if active_sessions[token]["expires_at"] < datetime.now():
-                del active_sessions[token]
+        for token in list(session_dict.keys()):
+            time_created = session_dict[token]["expires_at"]
+            now = datetime.now()
+            if time_created < now:
+                del session_dict[token]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(clean_sessions())
+    task = asyncio.create_task(clean_sessions(active_sessions))
     yield
+
     task.cancel()
 
-# ---------------- APP ----------------
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan= lifespan)
 
-@app.get("/")
-def home():
-    return {"status": "running"}
 
-# ---------------- CORS FIXED ----------------
+sessions: dict = {}
+
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -71,18 +65,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------- LOGGING ----------------
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# ---------------- MODELS ----------------
 class Login(BaseModel):
     user_name: str
-    password: str
-
-class Signup(BaseModel):
-    username: str
-    password: str
+    password:str
 
 class UserExpense(BaseModel):
     amount: float
@@ -90,154 +75,226 @@ class UserExpense(BaseModel):
     date: str
     description: str
 
-# ---------------- AUTH ----------------
+class Signup(BaseModel):
+    username: str
+    password: str
+
+
+
 hasher = CryptContext(schemes=["bcrypt"])
 
-# ---------------- SIGNUP ----------------
+
+
+
+
+
+
+#----------------VERIFYING THE USER------------------
+
 @app.post("/signup")
-def signup(data: Signup):
-    cursor.execute("SELECT username FROM users WHERE username = ?", (data.username,))
-    if cursor.fetchone():
+def adding(add: Signup):
+    username = add.username
+    user_pass = add.password
+    cursor.execute("SELECT username FROM users WHERE username = ?",(username,))
+    result = cursor.fetchone()
+    if result:
         raise HTTPException(status_code=400, detail="Username already exists")
+    else:
+        hashed_pass = hasher.hash(user_pass)
+        cursor.execute("INSERT INTO users (username,password,expenses,expense_id) VALUES (?,?,?,?)",(username,hashed_pass,{},1))
+        connections.commit()
 
-    hashed = hasher.hash(data.password)
+        return {"message": "Successfully created your account"}
 
-    cursor.execute(
-        "INSERT INTO users VALUES (?, ?, ?, ?)",
-        (data.username, hashed, {}, 1)
-    )
-    connections.commit()
-
-    return {"message": "Account created"}
-
-# ---------------- LOGIN ----------------
 @app.post("/verify_login")
-def login(data: Login):
-    cursor.execute("SELECT password FROM users WHERE username = ?", (data.user_name,))
-    row = cursor.fetchone()
-
-    if not row:
+def verify(login: Login):
+    to_confirm = login.password
+    username = login.user_name
+    cursor.execute("SELECT username FROM users WHERE username = ?",(username,))
+    result_ = cursor.fetchone()
+    if not result_:
         raise HTTPException(status_code=404, detail="User not found")
+    result = result_[0]
 
-    if not hasher.verify(data.password, row[0]):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not result:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    cursor.execute("select password from users where username = ?",(username,))
+    password_= cursor.fetchone()
+    if not password_:
+        raise HTTPException(status_code=404, detail="User not found")
+    password = password_[0]
 
-    token = str(uuid.uuid4())
+    verify = hasher.verify(to_confirm,password)
+    
+    if verify:
+        token = str(uuid.uuid4())
+        active_sessions[token] = {"username": login.user_name, "expires_at":datetime.now() + timedelta(hours=24)}
+        return {"token":token,"message":"Sucessfully login"}
+    else:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+#-------------------------------------------------UNDER DEVELOPMENT
 
-    active_sessions[token] = {
-        "username": data.user_name,
-        "expires_at": datetime.now() + timedelta(hours=24)
-    }
 
-    return {"token": token}
-
-# ---------------- AUTH HELPER ----------------
-def get_user(authorization: Optional[str]):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing token")
-
-    parts = authorization.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(status_code=401, detail="Invalid format")
-
-    token = parts[1]
-
-    if token not in active_sessions:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    session = active_sessions[token]
-
-    if session["expires_at"] < datetime.now():
-        del active_sessions[token]
-        raise HTTPException(status_code=401, detail="Token expired")
-
-    return session["username"]
-
-# ---------------- ADD EXPENSE ----------------
 @app.post("/expenses")
-def add_expense(expense: UserExpense, authorization: Optional[str] = Header(None)):
-    username = get_user(authorization)
+async def add_expense(expense: UserExpense, authorization: Optional[str] = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+    
+    token_parts = authorization.split()
+    if len(token_parts) != 2 or token_parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid authorization format")
+    
+    token = token_parts[1]
+    if token not in active_sessions:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    cursor.execute("SELECT expenses, expense_id FROM users WHERE username = ?", (username,))
-    row = cursor.fetchone()
+    session_data = active_sessions[token]
+    if datetime.now() > session_data["expires_at"]:
+        del active_sessions[token]  
+        raise HTTPException(status_code=401, detail="Token has expired")
+    
+    username = session_data["username"]
+    cursor.execute("select expenses from users where username = ?",(username,))
+    expenses_ = cursor.fetchone()
+    if not expenses_:
+        raise HTTPException(status_code=404, detail="User not found")
+    expenses = expenses_[0]
 
-    expenses = row[0] or {"expenses": {}}
-    next_id = row[1]
+    cursor.execute("select expense_id from users where username = ?",(username,))
+    current_id_ = cursor.fetchone()
+    if not current_id_:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    current_id = current_id_[0]
 
-    if "expenses" not in expenses:
-        expenses["expenses"] = {}
+    next_id = current_id + 1
+    cursor.execute("update users set expense_id = ? where username = ?",(next_id,username))
+    connections.commit()
 
-    expenses["expenses"][str(next_id)] = {
-        "id": next_id,
-        "amount": expense.amount,
+    if expenses is not None:
+        expense_to_work = expenses
+    else:
+        expense_to_work = {"expenses":{}}
+
+    if "expenses" not in expense_to_work:
+        expense_to_work["expenses"] = {}
+        
+    amount = expense.amount
+    category = expense.category
+    date = expense.date
+    description = expense.description
+
+    expense_to_work["expenses"][str(current_id)] = {
+        "id": current_id,
+        "amount": amount,
         "category": expense.category.strip().title(),
-        "date": expense.date,
-        "description": expense.description
+        "date": date,
+        "description": description
     }
 
-    cursor.execute(
-        "UPDATE users SET expenses = ?, expense_id = ? WHERE username = ?",
-        (expenses, next_id + 1, username)
-    )
-
+    cursor.execute("update users set expenses = ? where username = ?",(expense_to_work,username))
     connections.commit()
 
-    return {"message": "Expense added"}
+    return {"message":"Expense added successfully", "expense": expense_to_work["expenses"][str(current_id)]}
+    
 
-# ---------------- GET EXPENSES ----------------
 @app.get("/expenses")
-def get_expenses(authorization: Optional[str] = Header(None)):
-    username = get_user(authorization)
+async def return_expense(authorization: Optional[str] = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+    
+    token_parts = authorization.split()
+    if len(token_parts) != 2 or token_parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid authorization format")
+    
+    token = token_parts[1]
+    if token not in active_sessions:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    session_data = active_sessions[token]
+    username = session_data["username"]
+    cursor.execute("select expenses from users where username = ?",(username,))
+    expenses_ =  cursor.fetchone()
+    if not expenses_:
+        raise HTTPException(status_code=404, detail="User not found")
+    expenses = expenses_[0]
 
-    cursor.execute("SELECT expenses FROM users WHERE username = ?", (username,))
-    row = cursor.fetchone()
+    inner_expenses = expenses.get("expenses", {})
 
-    expenses = row[0] or {"expenses": {}}
+    if not inner_expenses:
+        return {"expenses":[]}
+    expense_list = list(inner_expenses.values())
+    return {"expenses":expense_list}
 
-    return {"expenses": list(expenses.get("expenses", {}).values())}
-
-# ---------------- STATS ----------------
 @app.get("/expenses/stats")
-def stats(authorization: Optional[str] = Header(None)):
-    username = get_user(authorization)
+async def stats(authorization: Optional[str] = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+    
+    token_parts = authorization.split()
+    if len(token_parts) != 2 or token_parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid authorization format")
+    
+    token = token_parts[1]
+    if token not in active_sessions:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    session_data = active_sessions[token]
+    username = session_data["username"]
+    cursor.execute("select expenses from users where username = ?",(username,))
+    expenses_ = cursor.fetchone()
+    if not expenses_:
+        raise HTTPException(status_code=404, detail="User not found")
+    expenses = expenses_[0]
 
-    cursor.execute("SELECT expenses FROM users WHERE username = ?", (username,))
-    row = cursor.fetchone()
+    inner_expenses = expenses.get("expenses", {})
 
-    expenses = row[0] or {"expenses": {}}
-    items = list(expenses.get("expenses", {}).values())
-
-    if not items:
+    if not inner_expenses:
         return {"total_spent": 0, "average": 0, "category_count": 0}
+        
+    total_exp = sum(exp["amount"] for exp in inner_expenses.values())
+    num_expenses = len(inner_expenses)
+    avg_exp = total_exp / num_expenses 
+    
+    
+    unique_categories = set(exp["category"].lower() for exp in inner_expenses.values())
+    category_count = len(unique_categories)
+    
+    return {"total_spent": total_exp, "average": avg_exp, "category_count": category_count}
 
-    total = sum(x["amount"] for x in items)
-
-    return {
-        "total_spent": total,
-        "average": total / len(items),
-        "category_count": len(set(x["category"].lower() for x in items))
-    }
-
-# ---------------- DELETE ----------------
 @app.delete("/expenses/{expense_id}")
-def delete(expense_id: int, authorization: Optional[str] = Header(None)):
-    username = get_user(authorization)
+async def delete_exp(expense_id: int, authorization: Optional[str] = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+    
+    token_parts = authorization.split()
+    if len(token_parts) != 2 or token_parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid authorization format")
+    
+    token = token_parts[1]
+    if token not in active_sessions:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    session_data = active_sessions[token]
+    username = session_data["username"]
 
-    cursor.execute("SELECT expenses FROM users WHERE username = ?", (username,))
-    row = cursor.fetchone()
+    cursor.execute("select expenses from users where username = ?",(username,))
+    expenses_ = cursor.fetchone()
+    if not expenses_:
+        raise HTTPException(status_code=404, detail="User not found")
+    expenses = expenses_[0]
 
-    expenses = row[0] or {"expenses": {}}
-
-    if str(expense_id) not in expenses.get("expenses", {}):
+    if str(expense_id) not in expenses.get("expenses",{}) :   
         raise HTTPException(status_code=404, detail="Expense not found")
+    
+    del expenses["expenses"][str(expense_id)]                 
+    cursor.execute("UPDATE users SET expenses = ? WHERE username = ?", (expenses, username))  
+    connections.commit()                                   
+    return {"message":"expense deleted successfully"}
 
-    del expenses["expenses"][str(expense_id)]
+    
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    
 
-    cursor.execute(
-        "UPDATE users SET expenses = ? WHERE username = ?",
-        (expenses, username)
-    )
-
-    connections.commit()
-
-    return {"message": "Deleted successfully"}
