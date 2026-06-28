@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI , HTTPException , Header
 from typing import Optional
 from pydantic import BaseModel
@@ -31,7 +30,23 @@ users(username text PRIMARY KEY,password TEXT,expenses JSON,expense_id INTEGER)
 
 cursor.execute(create_table)
 
-app = FastAPI()
+async def clean_sessions(session_dict):
+    while True:
+        await asyncio.sleep(3600)
+        for token in list(session_dict.keys()):
+            time_created = session_dict[token]["expires_at"]
+            now = datetime.now()
+            if time_created < now:
+                del session_dict[token]
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(clean_sessions(active_sessions))
+    yield
+
+    task.cancel()
+
+app = FastAPI(lifespan= lifespan)
 
 
 sessions: dict = {}
@@ -86,7 +101,7 @@ def adding(add: Signup):
         hashed_pass = hasher.hash(user_pass)
         cursor.execute("INSERT INTO users (username,password,expenses,expense_id) VALUES (?,?,?,?)",(username,hashed_pass,{},1))
         connections.commit()
-        
+
         return {"message": "Successfully created your account"}
 
 @app.post("/verify_login")
@@ -117,7 +132,7 @@ def verify(login: Login):
     else:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
-
+#-------------------------------------------------UNDER DEVELOPMENT
 
 
 @app.post("/expenses")
@@ -144,7 +159,7 @@ async def add_expense(expense: UserExpense, authorization: Optional[str] = Heade
     if not expenses_:
         raise HTTPException(status_code=404, detail="User not found")
     expenses = expenses_[0]
-   
+
     cursor.execute("select expense_id from users where username = ?",(username,))
     current_id_ = cursor.fetchone()
     if not current_id_:
@@ -160,8 +175,6 @@ async def add_expense(expense: UserExpense, authorization: Optional[str] = Heade
         expense_to_work = expenses
     else:
         expense_to_work = {"expenses":{}}
-    if "expenses" not in expense_to_work:
-        expense_to_work["expenses"] = {}
 
     if "expenses" not in expense_to_work:
         expense_to_work["expenses"] = {}
@@ -174,7 +187,7 @@ async def add_expense(expense: UserExpense, authorization: Optional[str] = Heade
     expense_to_work["expenses"][str(current_id)] = {
         "id": current_id,
         "amount": amount,
-        "category": category,
+        "category": expense.category.strip().title(),
         "date": date,
         "description": description
     }
@@ -236,11 +249,16 @@ async def stats(authorization: Optional[str] = Header(None)):
 
     if not inner_expenses:
         return {"total_spent": 0, "average": 0, "category_count": 0}
+        
     total_exp = sum(exp["amount"] for exp in inner_expenses.values())
-    total_cat = len(inner_expenses)
-    avg_exp = total_exp / total_cat
+    num_expenses = len(inner_expenses)
+    avg_exp = total_exp / num_expenses 
     
-    return {"total_spent": total_exp, "average": avg_exp, "category_count": total_cat}
+    
+    unique_categories = set(exp["category"].lower() for exp in inner_expenses.values())
+    category_count = len(unique_categories)
+    
+    return {"total_spent": total_exp, "average": avg_exp, "category_count": category_count}
 
 @app.delete("/expenses/{expense_id}")
 async def delete_exp(expense_id: int, authorization: Optional[str] = Header(None)):
